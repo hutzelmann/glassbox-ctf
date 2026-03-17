@@ -18,6 +18,7 @@ jobs:
         image:
           - hello
           - debug
+          - sqli-login
 
     steps:
       - name: Checkout
