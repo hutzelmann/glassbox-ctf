@@ -19,6 +19,7 @@ jobs:
           - hello
           - debug
           - sqli-login
+          - xss-light
 
     steps:
       - name: Checkout
