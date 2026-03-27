@@ -19,6 +19,7 @@ jobs:
           - hello
           - debug
           - sqli-login
+          - sqli-blind
           - xss-light
 
     steps:
