@@ -21,6 +21,7 @@ jobs:
           - sqli-login
           - sqli-blind
           - xss-light
+          - xss-chat
 
     steps:
       - name: Checkout
