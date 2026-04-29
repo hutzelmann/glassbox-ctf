@@ -1,19 +1,27 @@
 <?php
 $items = [
     "Apple" => ["price" => 1.99, "description" => "A juicy green apple."],
-    "Banana" => ["price" => 0.99, "description" => "A ripe yellow banana."],
-    "Cherry" => ["price" => 2.99, "description" => "A sweet red cherry."]
+    "Banana" => ["price" => 2.99, "description" => "A ripe yellow banana."],
+    "Cherry" => ["price" => 0.99, "description" => "A sweet red cherry."]
 ];
 ?>
-<!DOCTYPE html><html>
+<!DOCTYPE html>
+<html lang="en">
  <head>
- <title>Shopping Cart</title>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Shopping Cart</title>
+  <link rel="stylesheet" href="pico.min.css"/>
  </head>
  <body>
+  <main class="container">
   <?php if (empty($_POST) || empty($_POST["qty"])):?>
- <h1>Shopping Cart</h1>
- <p>Manage your items here</p>
- <form action="./" method="POST">
+  <article>
+   <header>
+    <h1>Shopping Cart</h1>
+    <p>Manage your items here</p>
+   </header>
+   <form action="./" method="POST">
    <table>
      <thead>
        <tr><th>Item</th><th>Price</th><th>Description</th><th>Quantity</th></tr>
@@ -22,19 +30,18 @@ $items = [
        <?php foreach ($items as $name => $info): ?>
        <tr>
          <td><?php echo htmlspecialchars($name); ?></td>
-         <td><?php echo number_format($info["price"], 2); ?></td>
+         <td><?php echo number_format($info["price"], 2); ?> $</td>
          <td><?php echo htmlspecialchars($info["description"]); ?></td>
-         <td><input type="number" name="qty[<?php echo htmlspecialchars($name); ?>]" min="0" max="3" step="1" value="0"/></td>
+         <td><input type="number" name="qty[<?php echo htmlspecialchars($name); ?>]" min="0" max="3" step="1" value="0" style="width:auto"/></td>
        </tr>
        <?php endforeach; ?>
      </tbody>
    </table>
-   <br/>
-   <label for="comment">Comment:</label><br/>
-   <textarea id="comment" name="comment" rows="4" cols="50" placeholder="Any special wishes?"></textarea>
-   <br/>
+   <label for="comment">Comment:</label>
+   <textarea id="comment" name="comment" rows="4" placeholder="Any special wishes?"></textarea>
    <input type="submit" value="Order and Pay"/>
- </form>
+   </form>
+  </article>
  <script>
  document.querySelector('form').addEventListener('submit', function() {
    var cart = {};
@@ -57,7 +64,8 @@ $items = [
  });
  </script>
   <?php else:?>
-  <h1>Package Instructions for Order 1337</h1>
+  <article>
+   <header><h1>Package Instructions for Order 1337</h1></header>
   <?php
     $exceeded = array_filter($_POST["qty"], fn($qty) => (int)$qty > 3);
     $ordered = array_filter($_POST["qty"], fn($qty, $name) => isset($items[$name]) && (int)$qty > 0, ARRAY_FILTER_USE_BOTH);
@@ -82,9 +90,11 @@ $items = [
     </table>
   <?php require 'critical.php'; ?>
   <?php endif;?>
-  <button onclick="checkOrder()">Packaged and Shipped</button>
+  <div style="display:flex;gap:1rem">
+    <button onclick="checkOrder()">Packaged and Shipped</button>
+    <a href="#" onclick="history.back(); return false;" role="button" class="secondary">Return</a>
+  </div>
   <p id="check-result"></p>
-  <p><a href="#" onclick="history.back(); return false;">Return</a></p>
   <script>
   function checkOrder() {
     var result = document.getElementById('check-result');
@@ -98,7 +108,7 @@ $items = [
     }
     var quantities = document.querySelectorAll('.quantity');
     for (var i = 0; i < quantities.length; i++) {
-      if (parseInt(quantities[i].textContent) >= 3) {
+      if (parseInt(quantities[i].textContent) > 3) {
         result.innerHTML = 'Success: Quantity manipulated<br><code>G1mmeM0re</code>';
         return;
       }
@@ -106,6 +116,8 @@ $items = [
     result.textContent = 'No manipulation detected';
   }
   </script>
+  </article>
  <?php endif;?>
+  </main>
  </body>
 </html>

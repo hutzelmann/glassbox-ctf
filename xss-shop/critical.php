@@ -1,4 +1,4 @@
 <?php if (!empty($_POST["comment"])):?>
-    <p><strong>Comment:</strong></p>
-    <p><?php echo $_POST["comment"]; ?></p>
-  <?php endif;?>
+  <h6>Customer Comment</h6>
+  <blockquote><?php echo $_POST["comment"]; ?></blockquote>
+<?php endif;?>
