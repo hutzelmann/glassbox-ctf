@@ -13,4 +13,5 @@ RUN curl -Lo /var/www/html/pico.min.css https://cdn.jsdelivr.net/npm/@picocss/pi
 COPY --from=cm-build /build/codemirror-bundle.js /var/www/html/codemirror-bundle.js
 COPY --from=cm-build /build/codemirror-bundle-debug.js /var/www/html/codemirror-bundle-debug.js
 COPY *.php *.html *.css /var/www/html/
+RUN cp /var/www/html/critical.php /var/www/html/critical.orig.php
 RUN chown -R www-data:www-data /var/www/html
