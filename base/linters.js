@@ -95,4 +95,41 @@ export const jsLinter = linter(esLint(new Linter(), {
   },
 }));
 
+export const sqlUnterminatedStringLinter = linter((view) => {
+  if (view.state.doc.length === 0) return [];
+  const text = view.state.doc.toString();
+  let inString = false;
+  let stringStart = 0;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (!inString) {
+      if ((ch === '-' && text[i + 1] === '-') || ch === '#') {
+        // line comment: skip to end of line
+        while (i < text.length && text[i] !== '\n') i++;
+      } else if (ch === '/' && text[i + 1] === '*') {
+        // block comment: skip to closing */
+        i += 2;
+        while (i < text.length && !(text[i] === '*' && text[i + 1] === '/')) i++;
+        i++; // skip closing /
+      } else if (ch === "'") {
+        inString = true;
+        stringStart = i;
+      }
+    } else if (ch === "'") {
+      if (text[i + 1] === "'") {
+        i++; // skip SQL-escaped quote ''
+      } else {
+        inString = false;
+      }
+    }
+  }
+  if (!inString) return [];
+  return [{
+    from: stringStart,
+    to: text.length,
+    severity: "error",
+    message: "Unterminated string literal",
+  }];
+});
+
 export { lintGutter };

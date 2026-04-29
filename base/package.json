@@ -4,6 +4,7 @@
     "@codemirror/lang-html": "6.4.9",
     "@codemirror/lang-javascript": "6.2.3",
     "@codemirror/lang-php": "6.0.2",
+    "@codemirror/lang-sql": "6.8.0",
     "@codemirror/language": "6.11.0",
     "@codemirror/lint": "6.8.5",
     "codemirror": "6.0.2",
