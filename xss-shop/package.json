@@ -1,0 +1,9 @@
+{
+  "private": true,
+  "dependencies": {
+    "@codemirror/lang-html": "6.4.9",
+    "@codemirror/lang-php": "6.0.2",
+    "codemirror": "6.0.2",
+    "esbuild": "*"
+  }
+}

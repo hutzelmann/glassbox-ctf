@@ -4,6 +4,7 @@ $items = [
     "Banana" => ["price" => 2.99, "description" => "A ripe yellow banana."],
     "Cherry" => ["price" => 0.99, "description" => "A sweet red cherry."]
 ];
+$debugSuffix = (isset($_GET['debug']) && $_GET['debug'] === '1') ? '?debug=1' : '';
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -12,16 +13,34 @@ $items = [
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>Shopping Cart</title>
   <link rel="stylesheet" href="pico.min.css"/>
+  <?php if (isset($_GET['debug']) && $_GET['debug'] === '1'): ?>
+  <script src="codemirror-bundle-debug.js" defer></script>
+  <?php endif; ?>
  </head>
  <body>
   <main class="container">
   <?php if (empty($_POST) || empty($_POST["qty"])):?>
   <article>
    <header>
-    <h1>Shopping Cart</h1>
-    <p>Manage your items here</p>
+    <div class="grid" style="grid-template-columns:1fr auto">
+     <hgroup>
+      <h1>Shopping Cart</h1>
+      <p>Manage your items here</p>
+     </hgroup>
+     <nav>
+      <ul></ul>
+      <ul>
+       <li>
+        <label>
+         <input type="checkbox" role="switch"<?php echo isset($_GET['debug']) && $_GET['debug'] === '1' ? ' checked' : ''; ?> onchange="var p=new URLSearchParams(window.location.search);this.checked?p.set('debug','1'):p.delete('debug');var s=p.toString();window.location.replace(s?'?'+s:window.location.pathname)"/>
+        </label>
+       </li>
+       <li><a href="fix.php<?php echo $debugSuffix; ?>" role="button">Fix</a></li>
+      </ul>
+     </nav>
+    </div>
    </header>
-   <form action="./" method="POST">
+   <form action="./<?php echo $debugSuffix; ?>" method="POST">
    <table>
      <thead>
        <tr><th>Item</th><th>Price</th><th>Description</th><th>Quantity</th></tr>
@@ -37,7 +56,7 @@ $items = [
        <?php endforeach; ?>
      </tbody>
    </table>
-   <label for="comment">Comment:</label>
+   <label for="comment"><strong>Comment:</strong></label>
    <textarea id="comment" name="comment" rows="4" placeholder="Any special wishes?"></textarea>
    <input type="submit" value="Order and Pay"/>
    </form>
@@ -65,15 +84,33 @@ $items = [
  </script>
   <?php else:?>
   <article>
-   <header><h1>Package Instructions for Order 1337</h1></header>
+   <header>
+    <div class="grid" style="grid-template-columns:1fr auto">
+     <hgroup>
+      <h1>Package Instructions for Order 1337</h1>
+      <p>Please put these items in a box</p>
+     </hgroup>
+     <nav>
+      <ul></ul>
+      <ul>
+       <li>
+        <label>
+         <input type="checkbox" role="switch"<?php echo isset($_GET['debug']) && $_GET['debug'] === '1' ? ' checked' : ''; ?> onchange="var p=new URLSearchParams(window.location.search);this.checked?p.set('debug','1'):p.delete('debug');var s=p.toString();window.location.replace(s?'?'+s:window.location.pathname)"/>
+        </label>
+       </li>
+       <li><a href="fix.php<?php echo $debugSuffix; ?>" role="button">Fix</a></li>
+      </ul>
+     </nav>
+    </div>
+   </header>
   <?php
     $exceeded = array_filter($_POST["qty"], fn($qty) => (int)$qty > 3);
     $ordered = array_filter($_POST["qty"], fn($qty, $name) => isset($items[$name]) && (int)$qty > 0, ARRAY_FILTER_USE_BOTH);
   ?>
   <?php if (!empty($exceeded)):?>
-    <p>Error: You cannot order more than 3 of any item.</p>
+    <p><mark>Error: You cannot order more than 3 of any item.</mark></p>
   <?php elseif (empty($ordered)):?>
-    <p>Error: no items selected.</p>
+    <p><mark>Error: no items selected.</mark></p>
   <?php else:?>
     <table>
       <thead>
@@ -90,7 +127,7 @@ $items = [
     </table>
   <?php require 'critical.php'; ?>
   <?php endif;?>
-  <div style="display:flex;gap:1rem">
+  <div class="grid">
     <button onclick="checkOrder()">Packaged and Shipped</button>
     <a href="#" onclick="history.back(); return false;" role="button" class="secondary">Return</a>
   </div>
