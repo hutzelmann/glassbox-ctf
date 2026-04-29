@@ -6,9 +6,41 @@ on:
       - main
 
 jobs:
+  build-base:
+    name: Build base images
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Log in to ghcr.io
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Build and push base
+        uses: docker/build-push-action@v7
+        with:
+          context: ./base
+          push: true
+          platforms: linux/amd64,linux/arm64
+          tags: ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}-base:latest
+
   build:
     name: Build ${{ matrix.image }}
     runs-on: ubuntu-latest
+    needs: build-base
     permissions:
       packages: write
 
@@ -48,3 +80,5 @@ jobs:
           push: true
           platforms: linux/amd64,linux/arm64
           tags: ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}-${{ matrix.image }}:latest
+          build-args: |
+            BASE_IMAGE=ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}-base:latest

@@ -1,12 +1,10 @@
-import { EditorView, basicSetup } from "codemirror";
-import { html } from "@codemirror/lang-html";
 import { linter, lintGutter } from "@codemirror/lint";
 import { syntaxTree } from "@codemirror/language";
 import { esLint } from "@codemirror/lang-javascript";
 import { Linter } from "eslint-linter-browserify";
 import globals from "globals";
 
-const VALID_HTML_TAGS = new Set([
+export const VALID_HTML_TAGS = new Set([
   "a", "abbr", "address", "area", "article", "aside", "audio",
   "b", "base", "bdi", "bdo", "blockquote", "body", "br", "button",
   "canvas", "caption", "cite", "code", "col", "colgroup",
@@ -23,7 +21,29 @@ const VALID_HTML_TAGS = new Set([
   "time", "title", "tr", "track", "u", "ul", "var", "video", "wbr",
 ]);
 
-const treeLinter = linter((view) => {
+export const phpLinter = linter(async (view) => {
+  if (view.state.doc.length === 0) return [];
+  const code = view.state.doc.toString();
+  const diagnostics = [];
+  try {
+    const resp = await fetch("lint.php", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: "code=" + encodeURIComponent(code),
+    });
+    if (!resp.ok) return diagnostics;
+    const data = await resp.json();
+    for (const d of data) {
+      try {
+        const line = view.state.doc.line(d.line);
+        diagnostics.push({ from: line.from, to: line.to, severity: d.severity, message: d.message });
+      } catch {}
+    }
+  } catch {}
+  return diagnostics;
+});
+
+export const treeLinter = linter((view) => {
   if (view.state.doc.length === 0) return [];
   const diagnostics = [];
   syntaxTree(view.state).iterate({
@@ -41,7 +61,7 @@ const treeLinter = linter((view) => {
   return diagnostics;
 });
 
-const htmlTagLinter = linter((view) => {
+export const htmlTagLinter = linter((view) => {
   if (view.state.doc.length === 0) return [];
   const diagnostics = [];
   const doc = view.state.doc;
@@ -63,7 +83,7 @@ const htmlTagLinter = linter((view) => {
   return diagnostics;
 });
 
-const jsLinter = linter(esLint(new Linter(), {
+export const jsLinter = linter(esLint(new Linter(), {
   languageOptions: {
     ecmaVersion: 2020,
     sourceType: "script",
@@ -75,33 +95,4 @@ const jsLinter = linter(esLint(new Linter(), {
   },
 }));
 
-document.addEventListener("DOMContentLoaded", () => {
-  const textarea = document.querySelector("textarea[name='comment']");
-  if (!textarea) return;
-
-  textarea.hidden = true;
-
-  const view = new EditorView({
-    doc: textarea.value,
-    extensions: [basicSetup, html(), EditorView.lineWrapping, lintGutter(), treeLinter, htmlTagLinter, jsLinter],
-  });
-
-  const wrapper = document.createElement("div");
-  wrapper.style.cssText = "border: var(--pico-border-width) solid var(--pico-form-element-border-color); border-radius: var(--pico-border-radius); margin-bottom: var(--pico-spacing); overflow: hidden;";
-  wrapper.appendChild(view.dom);
-  textarea.insertAdjacentElement("afterend", wrapper);
-
-  document.addEventListener("submit", (e) => {
-    if (e.target === textarea.form) {
-      textarea.value = view.state.doc.toString();
-    }
-  }, { capture: true });
-
-  textarea.form.addEventListener("reset", () => {
-    setTimeout(() => {
-      view.dispatch({
-        changes: { from: 0, to: view.state.doc.length, insert: textarea.value },
-      });
-    });
-  });
-});
+export { lintGutter };

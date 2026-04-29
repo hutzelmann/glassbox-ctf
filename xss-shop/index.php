@@ -14,7 +14,7 @@ $debugSuffix = (isset($_GET['debug']) && $_GET['debug'] === '1') ? '?debug=1' : 
   <title>Shopping Cart</title>
   <link rel="stylesheet" href="pico.min.css"/>
   <?php if (isset($_GET['debug']) && $_GET['debug'] === '1'): ?>
-  <script src="codemirror-bundle-debug.js" defer></script>
+  <script src="codemirror-html-edit.js" defer></script>
   <?php endif; ?>
  </head>
  <body>
@@ -57,7 +57,7 @@ $debugSuffix = (isset($_GET['debug']) && $_GET['debug'] === '1') ? '?debug=1' : 
      </tbody>
    </table>
    <label for="comment"><strong>Comment:</strong></label>
-   <textarea id="comment" name="comment" rows="4" placeholder="Any special wishes?"></textarea>
+   <textarea id="comment" name="comment" data-codemirror="html-edit" rows="4" placeholder="Any special wishes?"></textarea>
    <input type="submit" value="Order and Pay"/>
    </form>
   </article>
