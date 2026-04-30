@@ -1,3 +1,6 @@
-FROM php:8.2-apache
+ARG BASE_IMAGE=glassbox-base
 
-COPY index.php /var/www/html/
+FROM ${BASE_IMAGE}
+COPY *.php /var/www/html/
+RUN cp /var/www/html/critical.php /var/www/html/critical.orig.php
+RUN chown -R www-data:www-data /var/www/html
