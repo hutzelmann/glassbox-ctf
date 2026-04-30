@@ -95,6 +95,50 @@ export const jsLinter = linter(esLint(new Linter(), {
   },
 }));
 
+function isMysqlLineComment(text, i) {
+  // MySQL requires -- followed by at least one whitespace character
+  return text[i] === '-' && text[i + 1] === '-' &&
+    (i + 2 >= text.length || text[i + 2] === ' ' || text[i + 2] === '\t' || text[i + 2] === '\n' || text[i + 2] === '\r');
+}
+
+export const sqlBadCommentLinter = linter((view) => {
+  if (view.state.doc.length === 0) return [];
+  const text = view.state.doc.toString();
+  const diagnostics = [];
+  let inString = false;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (!inString) {
+      if (ch === '-' && text[i + 1] === '-') {
+        if (!isMysqlLineComment(text, i)) {
+          diagnostics.push({
+            from: i,
+            to: i + 2,
+            severity: "error",
+            message: "'--' must be followed by a space to start a comment in MySQL",
+          });
+        }
+        while (i < text.length && text[i] !== '\n') i++;
+      } else if (ch === '#') {
+        while (i < text.length && text[i] !== '\n') i++;
+      } else if (ch === '/' && text[i + 1] === '*') {
+        i += 2;
+        while (i < text.length && !(text[i] === '*' && text[i + 1] === '/')) i++;
+        i++;
+      } else if (ch === "'") {
+        inString = true;
+      }
+    } else if (ch === "'") {
+      if (text[i + 1] === "'") {
+        i++;
+      } else {
+        inString = false;
+      }
+    }
+  }
+  return diagnostics;
+});
+
 export const sqlUnterminatedStringLinter = linter((view) => {
   if (view.state.doc.length === 0) return [];
   const text = view.state.doc.toString();
@@ -103,7 +147,7 @@ export const sqlUnterminatedStringLinter = linter((view) => {
   for (let i = 0; i < text.length; i++) {
     const ch = text[i];
     if (!inString) {
-      if ((ch === '-' && text[i + 1] === '-') || ch === '#') {
+      if (isMysqlLineComment(text, i) || ch === '#') {
         // line comment: skip to end of line
         while (i < text.length && text[i] !== '\n') i++;
       } else if (ch === '/' && text[i + 1] === '*') {

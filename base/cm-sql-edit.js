@@ -1,6 +1,6 @@
 import { EditorView, basicSetup } from "codemirror";
 import { sql, MySQL } from "@codemirror/lang-sql";
-import { treeLinter, lintGutter, sqlUnterminatedStringLinter } from "./linters.js";
+import { treeLinter, lintGutter, sqlUnterminatedStringLinter, sqlBadCommentLinter } from "./linters.js";
 
 document.addEventListener("DOMContentLoaded", () => {
   const textarea = document.querySelector('[data-codemirror="sql-edit"]');
@@ -17,6 +17,7 @@ document.addEventListener("DOMContentLoaded", () => {
       lintGutter(),
       treeLinter,
       sqlUnterminatedStringLinter,
+      sqlBadCommentLinter,
     ],
   });
 
