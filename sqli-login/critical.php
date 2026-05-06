@@ -1,4 +1,6 @@
 <?php
+// $db = new mysqli(...) was called earlier
+
 $user = $_POST["username"];
 $pass = $_POST["password"];
 
