@@ -43,7 +43,7 @@ $debugSuffix = (isset($_GET['debug']) && $_GET['debug'] === '1') ? '?debug=1' : 
      <input type="submit" value="Send"/>
     </form>
     <?php else: ?>
-    <a href="<?php echo $_POST['link']; ?>"><?php echo $_POST['link']; ?></a></p>
+    <a href="<?php echo $_POST['link']; ?>"><?php echo htmlspecialchars($_POST['link']); ?></a></p>
     <?php if (filter_var($_POST['link'], FILTER_VALIDATE_URL) !== false): ?>
      <?php $link = $_POST['link']; ?>
      <?php $answer = shell_exec('python3 ' . escapeshellarg(__DIR__ . '/adminclicks.py') . ' ' . escapeshellarg($link) . ' 2>&1'); if (empty($answer)) { $answer = '(empty)'; } ?>
