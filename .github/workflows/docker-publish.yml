@@ -45,6 +45,7 @@ jobs:
           - sqli-login
           - sqli-blind
           - xss-light
+          - xss-cookie
           - xss-chat
           - xss-shop
 
