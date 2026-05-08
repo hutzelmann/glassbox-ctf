@@ -44,6 +44,7 @@ jobs:
           - debug
           - sqli-login
           - sqli-blind
+          - sqli-insert
           - xss-light
           - xss-cookie
           - xss-chat
