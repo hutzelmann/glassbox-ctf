@@ -31,6 +31,7 @@ $popAddr   = nrun_symbol_addr($BIN, 'pop_rdi_ret');
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>ret2libc</title>
   <link rel="stylesheet" href="pico.min.css"/>
+  <script src="remember-form-input.js"></script>
  </head>
  <body>
   <main class="container">

@@ -13,6 +13,7 @@ require 'debug.php';
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>Shopping Cart</title>
   <link rel="stylesheet" href="pico.min.css"/>
+  <script src="remember-form-input.js"></script>
   <?php if ($debugLevel >= 1): ?>
   <script src="codemirror-html-edit.js" defer></script>
   <?php endif; ?>
@@ -50,7 +51,7 @@ require 'debug.php';
          <td><?php echo htmlspecialchars($name); ?></td>
          <td><?php echo number_format($info["price"], 2); ?> $</td>
          <td><?php echo htmlspecialchars($info["description"]); ?></td>
-         <td><input type="number" name="qty[<?php echo htmlspecialchars($name); ?>]" min="0" max="3" step="1" value="0" style="width:auto"/></td>
+         <td><input type="number" name="qty[<?php echo htmlspecialchars($name); ?>]" min="0" max="3" step="1" style="width:auto"/></td>
        </tr>
        <?php endforeach; ?>
      </tbody>
@@ -60,27 +61,6 @@ require 'debug.php';
    <input type="submit" value="Order and Pay"/>
    </form>
   </article>
- <script>
- document.querySelector('form').addEventListener('submit', function() {
-   var cart = {};
-   document.querySelectorAll('input[name^="qty["]').forEach(function(el) {
-     cart[el.name] = el.value;
-   });
-   cart['comment'] = document.getElementById('comment').value;
-   sessionStorage.setItem('shopCart', JSON.stringify(cart));
- });
- document.addEventListener('DOMContentLoaded', function() {
-   var saved = sessionStorage.getItem('shopCart');
-   if (!saved) return;
-   sessionStorage.removeItem('shopCart');
-   var cart = JSON.parse(saved);
-   document.querySelectorAll('input[name^="qty["]').forEach(function(el) {
-     if (cart[el.name] !== undefined) el.value = cart[el.name];
-   });
-   if (cart['comment'] !== undefined)
-     document.getElementById('comment').value = cart['comment'];
- });
- </script>
   <?php else:?>
   <article>
    <header>

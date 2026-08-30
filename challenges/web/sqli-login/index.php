@@ -39,6 +39,7 @@ if (!empty($_POST) && !empty($_POST["username"]) && !empty($_POST["password"])) 
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>Admin Login</title>
   <link rel="stylesheet" href="pico.min.css"/>
+  <script src="remember-form-input.js"></script>
   <?php if ($debugLevel >= 1): ?>
   <script src="codemirror-sql-input.js" defer></script>
   <?php endif; ?>
@@ -82,22 +83,6 @@ if (!empty($_POST) && !empty($_POST["username"]) && !empty($_POST["password"])) 
      <?php endif;?>
      <input type="submit" value="Login"/>
     </form>
- <script>
- document.querySelector('form').addEventListener('submit', function() {
-   sessionStorage.setItem('loginForm', JSON.stringify({
-     username: document.querySelector('[name=username]').value,
-     password: document.querySelector('[name=password]').value
-   }));
- });
- document.addEventListener('DOMContentLoaded', function() {
-   var saved = sessionStorage.getItem('loginForm');
-   if (!saved) return;
-   sessionStorage.removeItem('loginForm');
-   var data = JSON.parse(saved);
-   document.querySelector('[name=username]').value = data.username || '';
-   document.querySelector('[name=password]').value = data.password || '';
- });
- </script>
     <?php else:?>
     <?php if (!empty($username)):?>
      <div class="grid">

@@ -108,6 +108,7 @@ if ($debugLevel >= 2 && empty($debugAllUsers)) {
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>User Registration</title>
   <link rel="stylesheet" href="pico.min.css"/>
+  <script src="remember-form-input.js"></script>
   <?php if ($debugLevel >= 1): ?>
   <script src="codemirror-sql-input.js" defer></script>
   <?php endif; ?>

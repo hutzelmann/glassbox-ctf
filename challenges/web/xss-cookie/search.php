@@ -36,6 +36,7 @@ if ($sessionCookie === '1tW0rk5!4real') {
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>Search for Content</title>
   <link rel="stylesheet" href="pico.min.css"/>
+  <script src="remember-form-input.js"></script>
   <?php if ($debugLevel >= 1): ?>
   <script src="codemirror-html-edit.js" defer></script>
   <?php endif; ?>

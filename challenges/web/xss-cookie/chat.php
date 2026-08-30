@@ -8,6 +8,7 @@ require 'debug.php';
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>Chat with the Admin</title>
   <link rel="stylesheet" href="pico.min.css"/>
+  <script src="remember-form-input.js"></script>
   <?php if ($debugLevel >= 2): ?>
   <script src="codemirror-html-edit.js" defer></script>
   <?php endif; ?>

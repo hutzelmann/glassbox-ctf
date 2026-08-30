@@ -65,8 +65,11 @@ podman run --rm -p 9000:80 ghcr.io/hutzelmann/glassbox-ctf-hello
 Open <http://localhost:9000/>, find your first flag, then turn the **debug**
 dial in the header up to **Hints** and then **Debug**, and click **Fix**, to meet
 the two controls every challenge shares. That's the whole workflow. When you're
-done, `Ctrl+C`: the container
-leaves nothing behind.
+done, `Ctrl+C`: the container leaves nothing behind.
+
+Forms remember what you last typed, so leaving a page and coming back does not
+cost you your payload. Moving the debug dial keeps it too. That is a convenience,
+not part of any challenge.
 
 New to containers? Start with the runtime check, which just proves your setup
 works:

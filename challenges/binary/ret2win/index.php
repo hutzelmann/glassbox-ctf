@@ -33,6 +33,7 @@ $winAddr = nrun_symbol_addr($BIN, 'win');
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>ret2win</title>
   <link rel="stylesheet" href="pico.min.css"/>
+  <script src="remember-form-input.js"></script>
  </head>
  <body>
   <main class="container">

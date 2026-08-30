@@ -8,9 +8,16 @@ document.addEventListener("DOMContentLoaded", () => {
   document.querySelectorAll('[data-codemirror="html-edit"]').forEach((textarea) => {
     textarea.hidden = true;
 
+    // Keep the backing textarea current on every change, not only on submit:
+    // this editor can sit inside a form, and leaving the page any other way (a
+    // link, the debug dial) must not lose what the learner typed.
+    const syncTextarea = EditorView.updateListener.of((update) => {
+      if (update.docChanged) textarea.value = update.state.doc.toString();
+    });
+
     const view = new EditorView({
       doc: textarea.value,
-      extensions: [basicSetup, html(), EditorView.lineWrapping, lintGutter(), treeLinter, htmlTagLinter, jsLinter],
+      extensions: [basicSetup, html(), EditorView.lineWrapping, lintGutter(), treeLinter, htmlTagLinter, jsLinter, syncTextarea],
     });
 
     const wrapper = document.createElement("div");
