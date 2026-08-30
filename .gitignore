@@ -1,4 +1,4 @@
-# Fetched or built at image-build time — never committed (see AGENTS.md).
+# Fetched or built at image-build time, never committed (see AGENTS.md).
 pico.min.css
 node_modules/
 codemirror-bundle.js
@@ -7,10 +7,10 @@ codemirror-html-edit.js
 codemirror-sql-edit.js
 codemirror-sql-input.js
 
-# Native (C) family editor bundle — esbuilt at image build.
+# Native (C) family editor bundle, esbuilt at image build.
 codemirror-c-view.js
 
-# Native challenge build outputs — the compiled binary and the Restore snapshots
+# Native challenge build outputs: the compiled binary and the Restore snapshots
 # are produced during the image build (or a local in-place build), never committed.
 challenges/binary/*/ret2win
 challenges/binary/*/ret2libc

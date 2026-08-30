@@ -3,7 +3,7 @@
 > A search page prints your query straight back into the HTML. Turn that echo
 > into a script, mail the link to the admin, and walk away with their session.
 
-**Domain:** Web · Cross-Site Scripting **Ladder:** XSS 3 of 3 — [light](../xss-light/) → [shop](../xss-shop/) → **cookie**
+**Domain:** Web · Cross-Site Scripting **Ladder:** XSS 3 of 3: [light](../xss-light/) → [shop](../xss-shop/) → **cookie**
 
 ## The scenario
 
@@ -12,7 +12,7 @@ matches it repeats your term back to you in the page. That echo is the whole
 game: the server trusts your input enough to render it.
 
 You are not the interesting victim, though. There is an **admin** who will click
-a link you send them — and the admin's browser carries a session cookie you very
+a link you send them, and the admin's browser carries a session cookie you very
 much want. Two other pages help you close the loop: a **chat** where you hand the
 admin a link, and a **Web Analytics** log that records every request that hits
 the server. This is the full chain, start to finish, and it all runs offline.
@@ -40,23 +40,23 @@ Then open <http://localhost:9000/> (the port is whatever you mapped with `-p`).
 
 ## The glass box
 
-- **Fix button** — opens the one vulnerable snippet (`critical.php`) in an
+- **Fix button**: opens the one vulnerable snippet (`critical.php`) in an
   in-browser editor. Patch it, **Save**, and the running page uses your version
   immediately. **Restore Original** puts the bug back.
-- **Debug dial** (the selector in each page's header) — three settings:
-  - **Challenge** — the site as it ships.
-  - **Hints** (`?debug=1`) — the search box becomes a multi-line HTML editor so
+- **Debug dial** (the selector in each page's header): three settings:
+  - **Challenge**: the site as it ships.
+  - **Hints** (`?debug=1`): the search box becomes a multi-line HTML editor so
     you can write a real script; your own session cookie is shown (it has no
     `HttpOnly` flag, so `document.cookie` can read it anyway); and in the chat,
     the admin bot's **JavaScript console errors** come back. Those errors are the
     heart of this rung: a payload that never runs in the victim's browser leaves
     a `SyntaxError` behind, and now you can read it.
-  - **Debug** (`?debug=2`) — the exact HTML page the admin's browser rendered,
+  - **Debug** (`?debug=2`): the exact HTML page the admin's browser rendered,
     what the server received in `$_GET["q"]`, and the vulnerable snippet itself.
     This is the victim's side of the wire; reach for it once your payload runs
     but you cannot see why the result is wrong.
 
 ## Stuck?
 
-The full walkthrough — payloads, the flag, and the fix — is in
+The full walkthrough (payloads, the flag, and the fix) is in
 [solution.md](solution.md). It contains spoilers; turn the debug dial up first.

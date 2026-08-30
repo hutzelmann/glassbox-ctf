@@ -1,4 +1,4 @@
-# glassbox-php — the PHP challenge family.
+# glassbox-php, the PHP challenge family.
 # Builds FROM the harness and adds everything PHP-specific: the CodeMirror editor
 # bundles (PHP/HTML/SQL modes, plus the level-1 SQL payload input) and PHP static
 # analysis (Psalm + lint.php).

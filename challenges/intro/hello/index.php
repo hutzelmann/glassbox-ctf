@@ -38,7 +38,7 @@ require 'debug.php';
     <?php if ($debugLevel >= 2): ?>
     <hr/>
     <p><strong>The request, as PHP parsed it.</strong> On the real challenges this
-    is where your payload arrives — and where you find out what the server made
+    is where your payload arrives, and where you find out what the server made
     of it.</p>
     <figure><table>
      <thead><tr><th>Source</th><th>Name</th><th>Value</th></tr></thead>

@@ -1,4 +1,4 @@
-# Runtime Check — Solution
+# Runtime Check: Solution
 
 > ⚠️ **No solution needed.** This is a setup check, not a challenge. There is no
 > vulnerability, no flag, and nothing to exploit.
@@ -15,7 +15,7 @@ That is the entire pass condition. Move on to the [hello](../hello/) challenge.
 
 ## If it did not print that
 
-The image failed to pull or run — a runtime problem, not a puzzle. A few things
+The image failed to pull or run: a runtime problem, not a puzzle. A few things
 to check:
 
 - The container runtime (podman or docker) is installed and its service is
@@ -27,5 +27,5 @@ to check:
 Once it prints the message, you are done here. Continue to
 [hello](../hello/), the first challenge with a real web page.
 
-No flags, no tasks, no professional tools — this rung of the ladder only exists
+No flags, no tasks, no professional tools. This rung of the ladder only exists
 to isolate "runtime broken" from "web app broken" before you start.

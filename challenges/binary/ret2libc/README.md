@@ -63,11 +63,11 @@ Then open <http://localhost:9000/>. As with ret2win the binary is x86-64
   or add a canary and watch the chain get caught.
 - **Debug dial** (optional, never required to solve), in two settings:
   - **Hints** (`?debug=1`) gives you a byte/endianness calculator and a live stack
-    table of your chain laid onto the frame — your own bytes, so you get the
+    table of your chain laid onto the frame, your own bytes, so you get the
     **offset** and alignment from what you sent.
   - **Debug** (`?debug=2`) adds the **ROP ingredients** panel (the `system`,
     `/bin/sh`, and gadget addresses your chain is built from), the disassembly,
-    `checksec`, and the memory map — the pieces a real attacker recovers with
+    `checksec`, and the memory map, the pieces a real attacker recovers with
     `ROPgadget` / `objdump`.
 
 ## Stuck?

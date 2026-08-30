@@ -1,5 +1,5 @@
 // Level-2 view of the query the server actually assembled. Editable so the
-// learner can poke at it, but not wired to any form — nothing is sent back.
+// learner can poke at it, but not wired to any form: nothing is sent back.
 import { EditorView, basicSetup } from "codemirror";
 import { sql, MySQL } from "@codemirror/lang-sql";
 import { treeLinter, lintGutter, sqlUnterminatedStringLinter, sqlBadCommentLinter } from "./linters.js";

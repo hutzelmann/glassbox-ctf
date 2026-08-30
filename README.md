@@ -19,9 +19,9 @@ flags and throwaway containers that run completely offline.
 ## Why it's different
 
 - **A debug dial with three settings, not an on/off switch.** Every page carries
-  a sticky selector — **Challenge**, **Hints**, **Debug** — so you choose how much of
+  a sticky selector (**Challenge**, **Hints**, **Debug**) so you choose how much of
   the answer you want.
-  - **Challenge** is the challenge as a real target would give it to you — no glass box.
+  - **Challenge** is the challenge as a real target would give it to you, no glass box.
   - **Hints** (`?debug=1`) hands you *tooling and the symptom your own attempt
     provoked*, never the answer. In the web challenges the input you attack
     through becomes a proper editor (highlighting and live diagnostics for the

@@ -143,7 +143,7 @@ and MAY descend from an unrelated minimal base image.
 
 Each challenge page SHALL expose its debug output at three levels selected by a
 sticky `debug` URL parameter: level `0` (absent or `0`), level `1`, and level
-`2`. The levels SHALL be cumulative — a page at level 2 SHALL show everything it
+`2`. The levels SHALL be cumulative: a page at level 2 SHALL show everything it
 shows at level 1. Level 0 SHALL present the challenge exactly as shipped, with no
 debug output. A `debug` value that is absent, empty, non-numeric, or outside the
 range SHALL resolve to the nearest valid level rather than producing an error.
@@ -176,10 +176,10 @@ submission a page emits SHALL carry the current level.
 
 Every piece of debug output SHALL be assigned to level 1 or level 2 by a single
 rule. Output SHALL sit at level 1 when it reports *that* and *how the learner's
-own attempt failed* — error messages the learner's input provoked, console errors
+own attempt failed*: error messages the learner's input provoked, console errors
 from the learner's own payload, and timing or behavioral signals a black-box
 attacker could infer. Output SHALL sit at level 2 when it discloses the target's
-internals — server source code, the assembled query, returned data, the raw
+internals: server source code, the assembled query, returned data, the raw
 request as the server parsed it, or the victim's rendered output. Debug output
 SHALL NOT disclose information the learner could not obtain at level 0 by
 ordinary browser inspection unless it is placed at level 2.

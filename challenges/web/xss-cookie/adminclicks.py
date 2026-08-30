@@ -25,7 +25,7 @@ driver = webdriver.Chrome(service=service, options=options)
 driver.get("http://localhost")
 driver.add_cookie({"domain": "localhost", "name": "session", "value": "1tW0rk5!4real"})
 
-# Strip any host-mapped port from localhost URLs — inside the container it is always port 80
+# Strip any host-mapped port from localhost URLs: inside the container it is always port 80
 args.url = re.sub(r"(localhost)(:|%3A)\d+", r"\1", args.url)
 
 driver.get(args.url)

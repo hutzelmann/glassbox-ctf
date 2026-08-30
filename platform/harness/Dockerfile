@@ -1,4 +1,4 @@
-# glassbox-harness — the shared web-delivery + Fix-editor skeleton.
+# glassbox-harness, the shared web-delivery + Fix-editor skeleton.
 # Every glass-box family (php, and later native) builds FROM this image, so it
 # holds only what is common to all of them: the Apache/PHP runtime, pico.css,
 # fix.php, debug.php (the three-level debug dial every page requires), and

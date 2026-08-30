@@ -69,7 +69,7 @@ emulation automatically (same command).
     overflow **offset** off your own crash. It does not name the target address.
   - **Debug** (`?debug=2`) opens the rest: the disassembly, the **Symbols** panel
     with `win`'s address (the value you jump to), the `checksec` protections, and
-    the memory map — the internals a real attacker digs out with `objdump` or
+    the memory map, the internals a real attacker digs out with `objdump` or
     Ghidra.
 
 ## Stuck?

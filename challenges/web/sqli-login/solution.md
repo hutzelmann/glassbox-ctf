@@ -1,4 +1,4 @@
-# SQL Injection: Login Bypass — Solution
+# SQL Injection: Login Bypass, Solution
 
 > ⚠️ **Spoilers below.** Flags, payloads, and the fix. If you want to solve it
 > yourself, close this file and turn the debug dial up instead.
@@ -17,7 +17,7 @@ $result = $db->query($sql);
 
 Anything you type in `username`/`password` becomes *SQL syntax*, not just data.
 Set the debug dial to **Debug** (`?debug=2`) to watch the query change as you
-type — that is the whole point of this challenge. (**Hints**, `?debug=1`, gives
+type. That is the whole point of this challenge. (**Hints**, `?debug=1`, gives
 you the MySQL editors and the raw database error, but not the query.)
 
 ## Walkthrough
@@ -27,7 +27,7 @@ comment (`-- -` or `#`) swallows the rest of the query.
 
 ### a) Guess the `test` password
 
-No injection needed — `test` uses the most common password in the world:
+No injection needed: `test` uses the most common password in the world:
 
 ```
 username: test
@@ -96,7 +96,7 @@ x' OR SLEEP(5) -- -
 
 `SLEEP(5)` runs per evaluated row; scale the number or use
 `BENCHMARK(10000000, MD5('a'))` to load the CPU. Keep it small on a shared
-machine — the goal is to *observe* the slowdown, not to wedge
+machine, the goal is to *observe* the slowdown, not to wedge
 your laptop.
 
 ### f) The fix
@@ -138,7 +138,7 @@ bug back for the next learner.
 
 ## Professional tools
 
-Once you understand the bug by hand, this is exactly what `sqlmap` automates —
+Once you understand the bug by hand, this is exactly what `sqlmap` automates:
 it fingerprints the DB, picks a technique (UNION / boolean / time-based), and
 dumps everything. Point it at the same POST form (adjust the port to whatever you
 mapped with `-p`):
@@ -164,10 +164,10 @@ run on a real engagement once you do.
 Prepared statements (above) are the fix. In depth, also:
 
 - **Least privilege.** This app's DB account is `SELECT`-only, which is why the
-  DoS and reads work but writes don't — scope every account to exactly what it
+  DoS and reads work but writes don't. Scope every account to exactly what it
   needs, so an injection can do less.
 - **Don't leak internals.** Never show raw SQL errors to users; they hand the
-  attacker your query and schema. (The debug view does this on purpose — it is a
+  attacker your query and schema. (The debug view does this on purpose, it is a
   teaching aid, not production behavior.)
 - **Never store plaintext passwords.** This DB keeps them in the clear as
   challenge content; a real app stores only salted hashes (`password_hash`), so a

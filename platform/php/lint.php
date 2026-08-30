@@ -21,7 +21,7 @@ if ($tmpFile === false) {
 
 file_put_contents($tmpFile, $code);
 
-// Phase 1: syntax check (~20ms) — skip Psalm entirely when syntax is broken
+// Phase 1: syntax check (~20ms), skip Psalm entirely when syntax is broken
 exec('php -l ' . escapeshellarg($tmpFile) . ' 2>&1', $phpOut, $phpRc);
 if ($phpRc !== 0) {
     unlink($tmpFile);
@@ -39,7 +39,7 @@ if ($phpRc !== 0) {
     exit;
 }
 
-// Phase 2: Psalm static analysis — detects undefined functions, classes, constants, too-few-args
+// Phase 2: Psalm static analysis, detects undefined functions, classes, constants, too-few-args
 $psalmConf = __DIR__ . '/psalm.xml';
 $cmd = 'psalm --config=' . escapeshellarg($psalmConf)
      . ' --output-format=json --no-progress --no-suggestions '

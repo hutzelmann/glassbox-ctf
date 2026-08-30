@@ -1,4 +1,4 @@
-# Cross-Site Scripting: Stored — Solution
+# Cross-Site Scripting: Stored, Solution
 
 > ⚠️ **Spoilers below.** Flags, payloads, and the fix. If you want to solve it
 > yourself, close this file and turn the debug dial up instead.
@@ -18,7 +18,7 @@ HTML with no escaping:
 <?php endif;?>
 ```
 
-Whatever you type in the comment field is not treated as text — it is parsed and
+Whatever you type in the comment field is not treated as text: it is parsed and
 rendered as markup. That is a cross-site scripting hole. But this challenge has a
 second, deeper bug: the **Packaged and Shipped** button runs `checkOrder()` in
 the *worker's browser* (`index.php`), pure client-side JavaScript. It scans the
@@ -44,7 +44,7 @@ Any markup in the comment renders. Order 1 Apple and comment:
 <b>hello from the comment</b>
 ```
 
-Submit. The text appears **bold** inside the *Customer Comment* blockquote —
+Submit. The text appears **bold** inside the *Customer Comment* blockquote,
 proof your input is parsed as HTML, not printed as characters.
 
 ### b) Forge an over-limit quantity
@@ -81,7 +81,7 @@ to see each flag.)
 ### d) Hide it from the warehouse worker
 
 The forged elements only have to *exist* in the DOM for `checkOrder()` to see
-them — they do not have to be visible. Make them invisible:
+them; they do not have to be visible. Make them invisible:
 
 ```
 <span class="item" style="display:none">Diamond</span>
@@ -95,7 +95,7 @@ check still finds the hidden item and prints `8lackFr1day1984`. The same
 
 You can skip the comment entirely and edit the live page: open DevTools →
 **Elements**, add a `<span class="item">Diamond</span>` (or bump a `.quantity`
-to `10`), then call `checkOrder()` from the **Console**. Same result — which is
+to `10`), then call `checkOrder()` from the **Console**. Same result, which is
 the whole point. A check that runs in the victim's browser can be rewritten by
 anyone who reaches that browser.
 
@@ -130,7 +130,7 @@ Original** brings the bug back for the next learner.
 
 ## Professional tools
 
-There is no `sqlmap` here — XSS lives in the browser, not the database — so the
+There is no `sqlmap` here (XSS lives in the browser, not the database), so the
 tools are the browser's own and an HTTP replay proxy.
 
 - **Browser DevTools.** The **Elements** panel is where you craft and inject
@@ -146,7 +146,7 @@ tools are the browser's own and an HTTP replay proxy.
     --data-urlencode 'comment=<b>injected</b>' | grep -A2 'Customer Comment'
   ```
 
-  You will see `<b>injected</b>` sitting inside the blockquote unescaped — the
+  You will see `<b>injected</b>` sitting inside the blockquote unescaped, the
   server never touched it. After the fix, the same request returns
   `&lt;b&gt;injected&lt;/b&gt;`.
 - **Burp Suite Repeater.** Intercept the order POST, send it to Repeater, and
@@ -156,7 +156,7 @@ tools are the browser's own and an HTTP replay proxy.
 ## Further defenses
 
 Escaping stops this particular injection, but the deeper lesson is: **never trust
-client-side validation.** `checkOrder()` being the only gate is the real bug —
+client-side validation.** `checkOrder()` being the only gate is the real bug:
 enforce the item allow-list and the quantity cap on the **server**, where the
 attacker cannot rewrite them. Then add a **Content-Security-Policy** that blocks
 inline scripts, so an injected `<script>` cannot run even if some other sink is

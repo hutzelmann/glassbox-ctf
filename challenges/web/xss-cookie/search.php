@@ -85,7 +85,7 @@ if ($sessionCookie === '1tW0rk5!4real') {
     <?php if ($debugLevel >= 1): ?>
     <hr/>
     <p><strong>Your session cookie:</strong> <code><?php echo $sessionCookie !== null ? htmlspecialchars($sessionCookie) : '(not set)'; ?></code>
-    — no <code>HttpOnly</code> flag, so <code>document.cookie</code> can read it too.</p>
+    (no <code>HttpOnly</code> flag, so <code>document.cookie</code> can read it too).</p>
     <?php endif; ?>
     <?php if ($debugLevel >= 2): ?>
     <hr/>

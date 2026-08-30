@@ -1,4 +1,4 @@
-# SQL Injection: INSERT Break-Out — Solution
+# SQL Injection: INSERT Break-Out, Solution
 
 > ⚠️ **Spoilers below.** The flag, the payloads, and the fix. If you want to
 > solve it yourself, close this file and turn the debug dial up instead.
@@ -17,10 +17,10 @@ $insertOk = $db->query($sql);
 ```
 
 `$regUser` comes straight from the `reg_username` POST field. Anything you type
-there becomes *SQL syntax*, not just a stored value — which means a single
+there becomes *SQL syntax*, not just a stored value, which means a single
 quote lets you close the `VALUES` string and keep writing the statement
 yourself. Set the debug dial to **Debug** (`?debug=2`) to watch the `INSERT`
-change as you register, and to see the whole `users` table afterward — that is
+change as you register, and to see the whole `users` table afterward. That is
 the point of this challenge. (**Hints**, `?debug=1`, gives you the MySQL editor
 on the registration username and the raw database error, but not the statement.)
 
@@ -38,7 +38,7 @@ attempts.
 
 The username is dropped between single quotes inside `VALUES ('…', '…')`. A
 single quote closes that string; a `),(` starts a second row; and a trailing
-`-- ` (dash, dash, **space**) comments out the rest of the statement — including
+`-- ` (dash, dash, **space**) comments out the rest of the statement, including
 the app's own dangling `'$regPassHash')`. So a payload shaped like
 `x', 'y'),( … ) -- ` turns the app's single-row `INSERT` into a *two-row* one
 whose second row you fully control. That extra row appearing in the **Debug**
@@ -63,14 +63,14 @@ secret:
 
 - **Flag (admin's stored secret):** `N0tAHa5Hbu1y0urFLA9`
 
-That is the exfiltration — you smuggled a value out of a column the app would
+That is the exfiltration: you smuggled a value out of a column the app would
 never display into one it does.
 
 ### d) Forge an account whose password you control
 
 Registration normally hashes the password *for* you, so you can never choose
 what gets stored. But if you inject the whole row, you write the `password`
-column yourself — so store a bcrypt hash of a password *you* already know.
+column yourself, so store a bcrypt hash of a password *you* already know.
 
 First, generate a bcrypt hash of a password of your choice (any bcrypt hash
 works; the app's login uses `password_verify`, so it must be a *real* hash):
@@ -90,7 +90,7 @@ The `INSERT` becomes `... VALUES ('hacker', '$2y$10$…') -- ', '<app-hash>')`,
 so a `hacker` row lands with *your* hash in the password column. Now switch to
 the **Login** form and sign in as `hacker` with the password you hashed
 (`letmein` above). You never let the app hash anything for you, so you planted a
-credential entirely of your choosing — a self-service backdoor account.
+credential entirely of your choosing, a self-service backdoor account.
 
 Unlike the exfil in (c), this variant *must* use a real bcrypt hash, because the
 safe login path verifies it with `password_verify`.
@@ -109,7 +109,7 @@ See **Further defenses** below.
 |------|------|-------|
 | c | admin's stored secret | `N0tAHa5Hbu1y0urFLA9` |
 
-Task (d) has no fixed flag — the "prize" is a working `hacker` login with a
+Task (d) has no fixed flag; the "prize" is a working `hacker` login with a
 password you chose.
 
 ## The fix
@@ -128,7 +128,7 @@ $insertOk = $stmt->execute();
 
 Save, then retry every payload above. The whole `pwn', 'x'),(…` string is now
 stored as a *literal username* (and rejected by the `UNIQUE` constraint on a
-retry, or simply stored verbatim) — it can no longer start a second row or a
+retry, or simply stored verbatim): it can no longer start a second row or a
 comment. **Restore Original** brings the bug back for the next learner.
 
 ## Professional tools
@@ -150,20 +150,20 @@ sqlmap -u "http://localhost:9000/" \
 Be honest about the limits, though: **`INSERT`-context injection is finicky for
 automated tools**. There is no result set to read back the way a `SELECT` gives
 one, so sqlmap is most useful here to *confirm the parameter is injectable* and
-to fingerprint the DB — while the hand-written subquery from task (c) is what
+to fingerprint the DB, while the hand-written subquery from task (c) is what
 does the clean exfil. This is exactly the case where the manual skill earns its
 keep.
 
 ## Further defenses
 
 - **Parameterize everywhere.** The login path shows the pattern; the fix applies
-  it to the `INSERT`. Every query built from input should use bound parameters —
+  it to the `INSERT`. Every query built from input should use bound parameters,
   reads *and* writes.
 - **Least privilege.** The app's DB user has `INSERT`/`DELETE`/`ALTER`; a
   registration flow needs far less. Narrower grants shrink the blast radius when
   a bug slips through.
 - **Validate and constrain input** (allowed username characters, length) as
-  defense in depth — but never *instead* of parameterization, only alongside it.
+  defense in depth, but never *instead* of parameterization, only alongside it.
 - **Don't store secrets in a stealable shape.** Password columns should hold
   slow, salted hashes only; a plausible-looking placeholder that is actually a
   cleartext flag is precisely what task (c) walks out with.
