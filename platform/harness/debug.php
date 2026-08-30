@@ -2,11 +2,11 @@
 // The glass-box debug dial, shared by every challenge page.
 //
 // Three cumulative levels, selected by the sticky ?debug=<n> URL parameter:
-//   0  Off    the challenge exactly as shipped
-//   1  Hints  the learner's input becomes an editor; symptom-side output only
-//             (the error their own attempt provoked, timing they could measure)
-//   2  Debug  the target's internals (the assembled query, the rows it returned,
-//             the server source, the victim's rendered output)
+//   0  Challenge  the challenge exactly as shipped, the way a real target gives it
+//   1  Hints      the learner's input becomes an editor; symptom-side output only
+//                 (the error their own attempt provoked, timing they could measure)
+//   2  Debug      the target's internals (the assembled query, the rows it returned,
+//                 the server source, the victim's rendered output)
 //
 // Placing a panel: level 1 tells the learner *how their own attempt failed*;
 // level 2 discloses *what the target is doing*. Anything a learner could not
@@ -23,7 +23,7 @@ $debugSuffix = $debugLevel > 0 ? '?debug=' . $debugLevel : '';
 function debug_switch(): void
 {
     global $debugLevel;
-    $levels = [0 => 'Off', 1 => 'Hints', 2 => 'Debug'];
+    $levels = [0 => 'Challenge', 1 => 'Hints', 2 => 'Debug'];
     ?>
 <select aria-label="Debug level" style="width:auto;margin:calc(var(--pico-nav-link-spacing-vertical) * -1) 0 0" onchange="var p=new URLSearchParams(window.location.search);this.value==='0'?p.delete('debug'):p.set('debug',this.value);var s=p.toString();window.location.replace(s?'?'+s:window.location.pathname)">
 <?php foreach ($levels as $value => $label): ?>

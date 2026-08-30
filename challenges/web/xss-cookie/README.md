@@ -44,7 +44,7 @@ Then open <http://localhost:9000/> (the port is whatever you mapped with `-p`).
   in-browser editor. Patch it, **Save**, and the running page uses your version
   immediately. **Restore Original** puts the bug back.
 - **Debug dial** (the selector in each page's header) — three settings:
-  - **Off** — the site as it ships.
+  - **Challenge** — the site as it ships.
   - **Hints** (`?debug=1`) — the search box becomes a multi-line HTML editor so
     you can write a real script; your own session cookie is shown (it has no
     `HttpOnly` flag, so `document.cookie` can read it anyway); and in the chat,

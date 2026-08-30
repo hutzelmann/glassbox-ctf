@@ -34,7 +34,7 @@ Then open <http://localhost:9000/>.
   in-browser editor. Patch it, **Save**, and the running page uses your version
   immediately. **Restore Original** puts the bug back.
 - **Debug dial** (the selector in the header) — three settings:
-  - **Off** — a plain one-line search box, as the site ships.
+  - **Challenge** — a plain one-line search box, as the site ships.
   - **Hints** (`?debug=1`) — the search box becomes a roomy CodeMirror editor
     with HTML highlighting and live diagnostics, so you compose a multi-character
     payload in the open instead of fighting a text input. It flags malformed

@@ -22,7 +22,7 @@ requesting runs in their browser.
 
 ## Walkthrough
 
-Payloads go in the **search field** (the `q` parameter). At **Off** it is a
+Payloads go in the **search field** (the `q` parameter). At **Challenge** it is a
 one-line text input; set the debug dial to **Hints** (`?debug=1`) to type them
 into a comfortable multi-line editor instead. **Debug** (`?debug=2`) additionally
 shows the raw `$_GET["q"]` and the vulnerable snippet.

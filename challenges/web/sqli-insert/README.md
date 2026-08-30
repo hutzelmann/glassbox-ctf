@@ -41,7 +41,7 @@ Then open <http://localhost:9000/> (the port is whatever you mapped with `-p`).
   in-browser editor. Patch it, **Save**, and the running page uses your version
   immediately. **Restore Original** puts the bug back.
 - **Debug dial** (the selector in the header) — three settings:
-  - **Off** — the challenge as shipped.
+  - **Challenge** — the challenge as shipped.
   - **Hints** (`?debug=1`) — the registration username becomes a MySQL editor,
     and the *database's own error message* appears instead of the generic
     "registration failed". On this rung the error is unusually informative: a

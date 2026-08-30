@@ -38,7 +38,7 @@ Then open <http://localhost:9000/>.
   immediately. **Restore Original** puts the bug back.
 - **Debug dial** (the selector in the header) — three settings, and here the
   split matters more than anywhere else on the ladder:
-  - **Off** — total silence, exactly like a real blind target.
+  - **Challenge** — total silence, exactly like a real blind target.
   - **Hints** (`?debug=1`) — MySQL editors on the login fields, the database's
     own error message, and the **timing panel** (*query runtime*, *CPU
     user/sys*, *block I/O*). The timing panel is your **instrument**: this rung

@@ -52,7 +52,7 @@ flags.
 
 ### d) Try the controls
 
-Turn the **debug** dial from **Off** to **Hints** and watch the page swap to
+Turn the **debug** dial from **Challenge** to **Hints** and watch the page swap to
 the read-only `critical.php` view, then to **Debug** for the request as PHP
 parsed it — the same dial exposes real server internals on the later
 challenges. Open the **Fix** button to see the in-browser editor; there is

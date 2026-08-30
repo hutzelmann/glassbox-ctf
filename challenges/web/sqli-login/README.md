@@ -36,7 +36,7 @@ Then open <http://localhost:9000/>.
   in-browser editor. Patch it, **Save**, and the running page uses your version
   immediately. **Restore Original** puts the bug back.
 - **Debug dial** (the selector in the header) — three settings:
-  - **Off** — the challenge as a real target would give it to you.
+  - **Challenge** — the challenge as a real target would give it to you.
   - **Hints** (`?debug=1`) — the username and password fields become MySQL
     editors, with the quote boundaries coloured the way MySQL really parses them,
     and the *database's own error message* replaces the polite "something went

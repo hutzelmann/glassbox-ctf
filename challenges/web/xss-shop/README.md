@@ -41,7 +41,7 @@ Then open <http://localhost:9000/>.
   in-browser editor. Patch it, **Save**, and the running page uses your version
   immediately. **Restore Original** puts the bug back.
 - **Debug dial** (the selector in the header) — three settings:
-  - **Off** — a plain comment box.
+  - **Challenge** — a plain comment box.
   - **Hints** (`?debug=1`) — the **Comment** box becomes a syntax-highlighting
     HTML editor with live diagnostics. Watch the editor treat your comment as
     *markup* rather than plain text — the same mistake the shop makes.
