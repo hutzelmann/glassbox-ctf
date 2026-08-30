@@ -25,7 +25,7 @@ function debug_switch(): void
     global $debugLevel;
     $levels = [0 => 'Off', 1 => 'Hints', 2 => 'Debug'];
     ?>
-<select aria-label="Debug level" style="width:auto;margin-bottom:0" onchange="var p=new URLSearchParams(window.location.search);this.value==='0'?p.delete('debug'):p.set('debug',this.value);var s=p.toString();window.location.replace(s?'?'+s:window.location.pathname)">
+<select aria-label="Debug level" style="width:auto;margin:calc(var(--pico-nav-link-spacing-vertical) * -1) 0 0" onchange="var p=new URLSearchParams(window.location.search);this.value==='0'?p.delete('debug'):p.set('debug',this.value);var s=p.toString();window.location.replace(s?'?'+s:window.location.pathname)">
 <?php foreach ($levels as $value => $label): ?>
  <option value="<?php echo $value; ?>"<?php echo $value === $debugLevel ? ' selected' : ''; ?>><?php echo $label; ?></option>
 <?php endforeach; ?>
