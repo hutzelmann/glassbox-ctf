@@ -20,6 +20,9 @@ jobs:
   #   - base: the CI override for the Dockerfile's `ARG BASE_IMAGE` default, mapped to its
   #           GHCR family image (glassbox-php -> ghcr.io/<owner>/glassbox-ctf-php:latest).
   #           Empty for standalone images (e.g. runtime-check FROM alpine).
+  #   - platforms: the `LABEL org.glassbox.platforms` default (e.g. binary rungs pin
+  #           linux/amd64 so their x86-64 addresses match the walkthrough), or the
+  #           two-arch default when the label is absent.
   # ---------------------------------------------------------------------------
   discover:
     name: Discover challenges
@@ -48,7 +51,10 @@ jobs:
             else
               base=""                                                 # standalone (no glassbox base)
             fi
-            items+=("{\"name\":\"${name}\",\"path\":\"${dir}\",\"base\":\"${base}\"}")
+            # Optional per-challenge publish platforms (LABEL org.glassbox.platforms).
+            platforms="$(grep -oP '^LABEL[[:space:]]+org\.glassbox\.platforms=\"?\K[^\"]+' "$df" | head -n1 || true)"
+            [ -z "$platforms" ] && platforms="linux/amd64,linux/arm64"
+            items+=("{\"name\":\"${name}\",\"path\":\"${dir}\",\"base\":\"${base}\",\"platforms\":\"${platforms}\"}")
           done
           json="[$(IFS=,; echo "${items[*]}")]"
           echo "Discovered: $json"
@@ -90,6 +96,16 @@ jobs:
           build-args: |
             BASE_IMAGE=${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ github.event.repository.name }}-harness:latest
 
+      - name: Build and push native family
+        uses: docker/build-push-action@v7
+        with:
+          context: ./platform/native
+          push: true
+          platforms: linux/amd64,linux/arm64
+          tags: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ github.event.repository.name }}-native:latest
+          build-args: |
+            BASE_IMAGE=${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ github.event.repository.name }}-harness:latest
+
   # ---------------------------------------------------------------------------
   # Build every discovered challenge, FROM its parsed family base (or standalone).
   # ---------------------------------------------------------------------------
@@ -117,6 +133,6 @@ jobs:
         with:
           context: ./${{ matrix.item.path }}
           push: true
-          platforms: linux/amd64,linux/arm64
+          platforms: ${{ matrix.item.platforms }}
           tags: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ github.event.repository.name }}-${{ matrix.item.name }}:latest
           build-args: ${{ matrix.item.base != '' && format('BASE_IMAGE={0}', matrix.item.base) || '' }}

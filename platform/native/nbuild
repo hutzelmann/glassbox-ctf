@@ -1,0 +1,47 @@
+#!/bin/bash
+# nbuild <out> <src> [flagsfile]
+#
+# Recompile a native challenge binary from its source + an allowlisted
+# compiler-flags file, ATOMICALLY. Shipped by the native family; each challenge's
+# build.sh calls it. Only the exploit-relevant flags are honored (the learner
+# edits them freely, but off-topic/dangerous flags are dropped with a note); gcc
+# is invoked as an argv array with this script owning -o/input, so nothing in the
+# flags file can shell-inject, redirect output, or swap the input. A failed
+# compile prints gcc's errors and exits non-zero WITHOUT swapping the live binary,
+# so the previous working build keeps running and the container never bricks.
+set -u
+
+out="${1:?usage: nbuild <out> <src> [flagsfile]}"
+src="${2:?usage: nbuild <out> <src> [flagsfile]}"
+flagsfile="${3:-build.flags}"
+
+# No lock needed: each build compiles to its own mktemp file and swaps in with an
+# atomic rename, so concurrent rebuilds are last-writer-wins with no half-written
+# binary ever visible to the runner.
+
+allowed=()
+dropped=()
+if [ -f "$flagsfile" ]; then
+  for tok in $(cat "$flagsfile"); do
+    case "$tok" in
+      -fstack-protector|-fstack-protector-all|-fstack-protector-strong|-fstack-protector-explicit|-fno-stack-protector|\
+-pie|-fpie|-fPIE|-no-pie|-fno-pie|-fno-PIE|\
+-Wl,-z,execstack|-Wl,-z,noexecstack|\
+-O0|-O1|-O2|-O3|-Os|-Og|-g)
+        allowed+=("$tok") ;;
+      *)
+        dropped+=("$tok") ;;
+    esac
+  done
+fi
+[ ${#dropped[@]} -gt 0 ] && echo "note: ignored non-allowlisted flags: ${dropped[*]}" >&2
+
+tmp="$(mktemp "./${out}.XXXXXX")"
+if gcc ${allowed[@]+"${allowed[@]}"} -o "$tmp" "$src" 2>&1; then
+  chmod +x "$tmp"
+  mv -f "$tmp" "./$out"
+  exit 0
+else
+  rm -f "$tmp"
+  exit 1
+fi
