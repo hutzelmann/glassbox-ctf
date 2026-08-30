@@ -1,10 +1,5 @@
-# challenge-structure Specification
+## MODIFIED Requirements
 
-## Purpose
-Defines the repository layout and the glass-box conventions every challenge must
-follow, so challenges group cleanly by domain and new challenge types can be
-added without reorganizing the tree.
-## Requirements
 ### Requirement: Challenges live in a domain-grouped tree
 
 Every challenge SHALL live in a folder `challenges/<domain>/<challenge>/`, where
@@ -26,18 +21,6 @@ Every challenge SHALL live in a folder `challenges/<domain>/<challenge>/`, where
 
 - **WHEN** a binary-exploitation challenge is added (e.g. `ret2win`, `ret2libc`)
 - **THEN** it is placed under `challenges/binary/<challenge>/`
-
-### Requirement: Published image names are decoupled from folder paths
-
-A challenge's published image SHALL be named `glassbox-ctf-<name>`, where
-`<name>` is the challenge folder's own basename, independent of its `<domain>`
-path segment.
-
-#### Scenario: Flat tag under nested path
-
-- **WHEN** a challenge lives at `challenges/web/sqli-login/`
-- **THEN** its published image is `ghcr.io/<owner>/glassbox-ctf-sqli-login`, with
-  no `web` segment in the tag
 
 ### Requirement: Base images form a platform family chain
 
@@ -119,16 +102,3 @@ internals relevant to its vulnerability.
 - **WHEN** a Save-hook succeeds
 - **THEN** the running artifact is replaced by the newly produced one atomically,
   so no request ever runs a half-written artifact
-
-### Requirement: Setup containers are not forkable challenges
-
-A container whose sole purpose is verifying the learner's environment
-(`runtime-check`) SHALL NOT be required to follow the glass-box editing contract
-and MAY descend from an unrelated minimal base image.
-
-#### Scenario: Runtime check needs no Fix editor
-
-- **WHEN** the `runtime-check` container is built
-- **THEN** it may be a minimal image (e.g. `alpine`) with no `critical.<ext>`,
-  no Fix editor, and no `?debug=1` view
-

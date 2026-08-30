@@ -1,20 +1,4 @@
-# build-and-publish Specification
-
-## Purpose
-Defines how CI discovers, builds, and publishes images so that adding a challenge
-requires no edit to the pipeline and the base-image chain is always built in the
-right order.
-## Requirements
-### Requirement: Challenges are auto-discovered
-
-CI SHALL discover challenges by scanning the `challenges/` tree for `Dockerfile`s
-rather than from a hand-maintained list. Adding a challenge SHALL require only
-adding its folder.
-
-#### Scenario: New challenge builds with no pipeline edit
-
-- **WHEN** a new challenge folder containing a `Dockerfile` is pushed to `main`
-- **THEN** CI builds and publishes it without any change to the workflow file
+## MODIFIED Requirements
 
 ### Requirement: The base chain is built before challenges
 
@@ -34,19 +18,6 @@ pull its family base image.
 - **WHEN** a CI run starts
 - **THEN** the `native` family image is built `FROM` the published `harness` and
   pushed as `glassbox-ctf-native` before the challenges that depend on it
-
-### Requirement: Family is resolved per challenge, tolerating standalone images
-
-CI SHALL determine each challenge's base image from that challenge's own
-`Dockerfile` (its `ARG BASE_IMAGE` default). A challenge that does not descend
-from a glass-box base image (e.g. `runtime-check`) SHALL still build and publish
-standalone.
-
-#### Scenario: Standalone smoke-test still publishes
-
-- **WHEN** `runtime-check`, which builds `FROM alpine`, is discovered
-- **THEN** it is built and published as `glassbox-ctf-runtime-check` without
-  requiring a glass-box family base
 
 ### Requirement: Multi-architecture publishing to GHCR
 
@@ -70,4 +41,3 @@ behavior unchanged.
   declare `linux/amd64` only, so their x86-64 addresses match the walkthrough)
 - **THEN** CI publishes that challenge for only the declared platforms, while
   other challenges continue to publish for both architectures
-
