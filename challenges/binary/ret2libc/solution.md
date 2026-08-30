@@ -36,8 +36,8 @@ ROPgadget --binary ./ret2libc | grep ': pop rdi ; ret'  # pop rdi; ret gadget
 ROPgadget --binary ./ret2libc --string '/bin/sh'        # the "/bin/sh" string
 ```
 
-(The challenge's optional debug view lists the same addresses, but you never need
-it; everything here works from the downloaded binary alone.)
+(The **Debug** dial's **ROP ingredients** panel lists the same addresses, but you
+never need it; everything here works from the downloaded binary alone.)
 
 In the shipped build (read the *current* values, they are build-specific):
 

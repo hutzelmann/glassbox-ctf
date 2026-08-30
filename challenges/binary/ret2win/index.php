@@ -1,8 +1,7 @@
 <?php
 require 'native-run.php';
 
-$debug = isset($_GET['debug']) && $_GET['debug'] === '1';
-$debugSuffix = $debug ? '?debug=1' : '';
+require 'debug.php';
 $BIN = __DIR__ . '/ret2win';
 $BUFSIZE = 16; // char buf[16] in critical.c, the stack table labels regions from this
 
@@ -47,11 +46,7 @@ $winAddr = nrun_symbol_addr($BIN, 'win');
       <nav>
        <ul></ul>
        <ul>
-        <li>
-         <label>
-          <input type="checkbox" role="switch"<?php echo $debug ? ' checked' : ''; ?> onchange="var p=new URLSearchParams(window.location.search);this.checked?p.set('debug','1'):p.delete('debug');var s=p.toString();window.location.replace(s?'?'+s:window.location.pathname)"/>
-         </label>
-        </li>
+        <li><?php debug_switch(); ?></li>
         <li><a href="fix.php<?php echo $debugSuffix; ?>" role="button">Fix</a></li>
        </ul>
       </nav>
@@ -98,7 +93,7 @@ $winAddr = nrun_symbol_addr($BIN, 'win');
     <?php endif; ?>
     <?php endif; ?>
 
-    <?php if ($debug): ?>
+    <?php if ($debugLevel >= 1): ?>
     <hr/>
     <article style="margin-bottom:var(--pico-spacing)">
      <small><strong>Endianness helper.</strong> Type a hex address on one side to get the little-endian bytes for your payload (and back).</small>
@@ -113,14 +108,18 @@ $winAddr = nrun_symbol_addr($BIN, 'win');
     </article>
     <?php
     $activeTab = 'stack';
-    $dbgTabs = [
-        'stack'    => 'Your bytes',
-        'checksec' => 'checksec',
-        'disasm'   => 'Disassembly',
-        'maps'     => 'Memory map',
-        'prog'     => 'Program',
-        'symbols'  => 'Symbols',
-    ];
+    // Level 1 shows only the learner's own bytes on the frame (symptom); level 2
+    // adds the target internals a real attacker extracts for themselves (cause).
+    $dbgTabs = ['stack' => 'Your bytes'];
+    if ($debugLevel >= 2) {
+        $dbgTabs += [
+            'checksec' => 'checksec',
+            'disasm'   => 'Disassembly',
+            'maps'     => 'Memory map',
+            'prog'     => 'Program',
+            'symbols'  => 'Symbols',
+        ];
+    }
     ?>
     <div role="group" id="dbg-tabs">
      <?php foreach ($dbgTabs as $id => $label): ?>
@@ -140,12 +139,14 @@ $winAddr = nrun_symbol_addr($BIN, 'win');
      <p><small>The stack frame your input runs off the end of. Your bytes start at
         <code>+0</code>; fill the buffer and the saved RBP, and the 8 bytes at the
         highlighted <strong>saved return address</strong> become where the CPU jumps.
-        Put <code><?php echo htmlspecialchars($winAddr ?? '?'); ?></code>
-        (little-endian) there and send, and your bytes appear laid onto this frame.</small></p>
+        Put your target address there (turn the dial to <strong>Debug</strong> for the
+        <strong>Symbols</strong> panel, or find it yourself with <code>objdump</code> /
+        Ghidra), little-endian, and send, and your bytes appear laid onto this frame.</small></p>
      <?php echo nrun_frame_diagram($BUFSIZE); ?>
      <?php endif; ?>
     </section>
 
+    <?php if ($debugLevel >= 2): ?>
     <section data-panel="checksec" hidden>
      <figure><table>
       <tbody>
@@ -200,6 +201,7 @@ $winAddr = nrun_symbol_addr($BIN, 'win');
       </tbody>
      </table></figure>
     </section>
+    <?php endif; ?>
     <?php endif; ?>
    </article>
   </main>

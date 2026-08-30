@@ -28,9 +28,9 @@ offset 24 ├──────────────────────�
 ```
 
 Whatever 8 bytes you place at **offset 24** become the address the CPU jumps to
-when `vuln()` returns. (The optional debug view visualises this with a live stack
-table, but you do not need it to solve the challenge; everything below works from
-the downloaded binary alone.)
+when `vuln()` returns. (The optional debug dial visualises this with a live stack
+table at **Hints**, but you do not need it to solve the challenge; everything below
+works from the downloaded binary alone.)
 
 ## Walkthrough
 
@@ -73,8 +73,8 @@ AAAAAAAAAAAAAAAAAAAAAAAA\x76\x11\x40\x00\x00\x00\x00\x00
 ```
 
 Send it → `win()` runs. The binary itself only prints a decoy marker
-(`N0tTh3Fl4gR34lly`), so the downloadable binary and the debug **Program** view
-never contain the real flag; the web runner recognises the marker and reveals it:
+(`N0tTh3Fl4gR34lly`), so the downloadable binary and the **Debug** dial's **Program**
+view never contain the real flag; the web runner recognises the marker and reveals it:
 
 - **Flag:** `R3turn2Th3W1n`
 

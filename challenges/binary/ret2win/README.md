@@ -60,11 +60,17 @@ emulation automatically (same command).
   **Restore Original** puts the bug (and the default flags) back. The editor also
   has a **compiler-flags** field: change the protections the binary is built with
   and watch the exploit succeed or fail without touching the code.
-- **Debug switch** (optional, the toggle in the header, or `?debug=1`), the
-  "glass box". You never need it to solve the challenge; it is there when you want
-  to *understand* what happened. It shows the disassembly, the symbol addresses,
-  the `checksec` protections, a hexdump of exactly what the server received, and a
-  **live stack table** of your bytes laid onto the frame.
+- **Debug dial** (optional, the selector in the header), the "glass box". You
+  never need it to solve the challenge; it is there when you want to *understand*
+  what happened, and it comes in two settings:
+  - **Hints** (`?debug=1`) gives you tooling and your own attempt back: a
+    byte/endianness calculator, a hexdump of exactly what the server received, and
+    a **live stack table** of your bytes laid onto the frame, so you read the
+    overflow **offset** off your own crash. It does not name the target address.
+  - **Debug** (`?debug=2`) opens the rest: the disassembly, the **Symbols** panel
+    with `win`'s address (the value you jump to), the `checksec` protections, and
+    the memory map — the internals a real attacker digs out with `objdump` or
+    Ghidra.
 
 ## Stuck?
 
