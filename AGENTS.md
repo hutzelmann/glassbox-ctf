@@ -16,7 +16,7 @@ Work in this repo — writing challenges, exploit examples, admin-bot simulation
 
 Non-trivial changes **must** be drafted as an OpenSpec change under `openspec/changes/<id>/` (proposal → specs → design → tasks) **before** implementation. The tooling is set up (`openspec/`, plus `.claude/` commands and skills); use `openspec new change <id>`, fill the artifacts, and `openspec validate <id> --strict` before coding. Archive with `openspec archive <id>` when done.
 
-**Non-trivial (OpenSpec required):** adding a challenge; adding a challenge type or base image; changing the folder or CI structure; changing the glass-box contract (the `critical.<ext>` / Fix / `?debug=1` pattern); anything that touches multiple challenges.
+**Non-trivial (OpenSpec required):** adding a challenge; adding a challenge type or base image; changing the folder or CI structure; changing the glass-box contract (the `critical.<ext>` / Fix / debug-level pattern); anything that touches multiple challenges.
 
 **Trivial (skip OpenSpec):** typo and copy fixes; a single-file bugfix within one challenge; dependency version bumps; documentation wording.
 
@@ -27,7 +27,9 @@ Non-trivial changes **must** be drafted as an OpenSpec change under `openspec/ch
 Two learner-facing mechanisms drive almost every design decision:
 
 - **The `critical.<ext>` pattern.** The single vulnerable snippet lives in `critical.php` (the extension tracks the challenge language; all current challenges are PHP), `require`d by a page (e.g. `index.php`, `search.php`). At build time it is snapshotted to `critical.orig.php`. `fix.php` (shipped by the harness image) is an in-browser CodeMirror editor that saves back to `critical.php` (Restore reverts to the `.orig`). So the learner edits the *real running code* of just the vulnerable part. Everything the learner should not touch stays outside `critical.php`.
-- **The debug switch.** `?debug=1` toggles extra output that exposes server internals — the exact SQL sent, returned rows, the admin's rendered page, JS console errors, etc. It is sticky: every page computes `$debugSuffix` and appends it to internal links, and an inline `onchange` handler rewrites the URL's `debug` param. Debug-only CodeMirror bundles are `<script>`-included only when `debug=1`.
+- **The debug dial.** Three cumulative levels selected by a sticky `?debug=<n>`: **0 Off** (the challenge as shipped), **1 Hints**, **2 Debug**. The placement rule is *symptom versus cause* — level 1 tells the learner **how their own attempt failed** (the input becomes a language-appropriate CodeMirror editor with linting; the raw `$db->error`; the admin bot's JS console errors; `sqli-blind`'s timing panel), level 2 discloses **what the target is doing** (the assembled `$sql`, returned rows, the admin's rendered page, the raw request, the vulnerable source). Nothing a learner could already read in their own browser is held back to level 2, and no challenge may offer a level with nothing behind it.
+
+  The plumbing is `platform/harness/debug.php`, which every page `require`s: it exports `$debugLevel` (clamped int, so `?debug=banana`/`7`/`-1` land on a valid level), `$debugSuffix` (appended to internal links, unchanged in role), and `debug_switch()` (the pico `<select>` in the header). Gate panels with `if ($debugLevel >= 1)` / `>= 2`; level-specific CodeMirror bundles are `<script>`-included the same way. Never re-derive the level from `$_GET['debug']` in a page.
 
 ## Repository layout
 
@@ -40,7 +42,7 @@ challenges/
     sqli-login/  sqli-blind/  sqli-insert/     (SQLi ladder)
     xss-light/   xss-shop/    xss-cookie/      (XSS ladder)
 platform/           shared base images (the family chain)
-  harness/          FROM php:8.5-apache: pico.css + fix.php — the web-delivery + Fix skeleton
+  harness/          FROM php:8.5-apache: pico.css + fix.php + debug.php — web delivery, Fix, debug dial
   php/              FROM harness: CodeMirror bundles + Psalm + lint.php — the PHP family
 openspec/           OpenSpec changes and specs
 docs/img/           screenshots/media for the top-level README
@@ -63,28 +65,32 @@ podman build -t glassbox-php ./platform/php/
 cd challenges/web/sqli-login && podman build -t glassbox-ctf . && podman run -it --rm -p 9000:80 glassbox-ctf
 ```
 
-Then open `http://localhost:9000/` (add `?debug=1`, or use the header toggle, to see internals). Live-reload loop while editing a challenge:
+Then open `http://localhost:9000/` (add `?debug=1` for Hints or `?debug=2` for full internals, or use the header dial). Live-reload loop while editing a challenge:
 
 ```sh
 while true; do find . -maxdepth 1 -type f | entr -d -r sh -c 'podman build -t glassbox-ctf . && exec podman run --rm -p 9000:80 glassbox-ctf'; done
 ```
 
-Rebuild the base chain whenever you touch anything in `platform/` (editor sources, linters, `fix.php`, `lint.php`, `psalm.xml`, either Dockerfile) — challenge images layer `FROM ${BASE_IMAGE}` (default `glassbox-php`) on top of it.
+Rebuild the base chain whenever you touch anything in `platform/` (editor sources, linters, `fix.php`, `debug.php`, `lint.php`, `psalm.xml`, either Dockerfile) — challenge images layer `FROM ${BASE_IMAGE}` (default `glassbox-php`) on top of it.
 
 CI (`.github/workflows/docker-publish.yml`) **auto-discovers** challenges: a `discover` job scans `challenges/**/Dockerfile`, then a `base` job builds+pushes `harness` then `php`, then a `challenges` matrix builds+pushes every `glassbox-ctf-<name>` for linux/amd64+arm64 on push to `main`. **Adding a challenge is just adding its folder** — there is no matrix to edit. Each challenge's family base is parsed from its own Dockerfile's `ARG BASE_IMAGE` default (a folder that does not descend from a glass-box image, like `runtime-check`, builds standalone).
 
 ## Architecture
 
 **Platform base chain (`platform/`) — the shared runtime.**
-- `platform/harness/` — `FROM php:8.5-apache`; fetches `pico.min.css`; ships `fix.php`. This is the universal web-delivery + Fix-button skeleton. `fix.php` references `codemirror-bundle.js` **by name**, so the concrete editor bundle is supplied by whichever family sits on top — a future non-PHP family can swap the editor's language without touching the harness.
-- `platform/php/` — `FROM` harness; a `node:alpine` stage esbuilds `editor/cm-*.js` into the four CodeMirror bundles, installs the Psalm phar, and ships `psalm.xml` + `lint.php`. This is everything PHP-specific.
+- `platform/harness/` — `FROM php:8.5-apache`; fetches `pico.min.css`; ships `fix.php` and `debug.php`. This is the universal web-delivery + Fix-button + debug-dial skeleton (`debug.php` is language-agnostic, so a non-PHP family inherits the dial unchanged). `fix.php` references `codemirror-bundle.js` **by name**, so the concrete editor bundle is supplied by whichever family sits on top — a future non-PHP family can swap the editor's language without touching the harness.
+- `platform/php/` — `FROM` harness; a `node:alpine` stage esbuilds `editor/cm-*.js` into the five CodeMirror bundles, installs the Psalm phar, and ships `psalm.xml` + `lint.php`. This is everything PHP-specific.
 
 Everything under `platform/` is fetched/built at image-build time (pico.css, the Psalm phar, the esbuilt bundles) — never committed, never fetched at runtime.
 
 **The in-browser editor + linting stack.** CodeMirror sources are `platform/php/editor/cm-*.js`, bundled by esbuild. Each attaches to a differently-marked `<textarea>`:
 - `cm-init.js` → `codemirror-bundle.js` → `textarea[name='content']`, the editable PHP editor used by `fix.php`.
-- `cm-sql-edit.js` / `cm-html-edit.js` → `[data-codemirror="sql-edit"|"html-edit"]`, editable views shown in debug mode (the SQL editor re-highlights strings using MySQL escaping rules, not CM's).
+- `cm-sql-input.js` → `[data-codemirror="sql-input"]`, the **level-1** editor for SQLi payload fields: form-wired, MySQL highlighting, and `sqlBadCommentLinter` only — `sqlUnterminatedStringLinter` is deliberately absent, because an unterminated string is what a breakout payload produces.
+- `cm-sql-edit.js` / `cm-html-edit.js` → `[data-codemirror="sql-edit"|"html-edit"]`, editable views (`sql-edit` is the **level-2** view of the server's assembled query; `html-edit` is the level-1 payload editor on XSS pages and the level-2 admin-page dump).
 - `cm-php-view.js` → `[data-codemirror="php-view"]`, read-only.
+- `mysql-strings.js` — MySQL string-range parsing and the highlighter shared by both SQL bundles.
+
+Every bundle mounts with `querySelectorAll`, not `querySelector`: a page can have more than one editor (`sqli-login` upgrades both username and password).
 
 Linters live in `platform/php/editor/linters.js`. The PHP linter POSTs to `lint.php`, which runs `php -l` first (fast syntax gate) then Psalm, and returns only a whitelisted set of issue types (undefined function/class/method/constant, too-few-args) as JSON diagnostics. `psalm.xml` points `projectFiles` at `/tmp` (where `lint.php` writes the snippet) and suppresses undefined-variable errors because `critical.php` snippets reference variables injected by the including page (`$db`, `$user`, `$sql`, …).
 
@@ -104,4 +110,4 @@ Neither `.md` file is copied into the image — challenge Dockerfiles copy only 
 - **Prefer the simplest layer:** modern HTML5-only > CSS > JavaScript > server-side. Reach for the higher layer only when the lower one can't do it.
 - **No runtime cloud dependencies.** Everything a container needs must be baked in at build time; a built image must work fully offline.
 - **Never commit external JS/CSS.** Download/build it during the image build instead (`pico.min.css` and the CodeMirror bundles are gitignored for this reason).
-- **New challenge = own folder under `challenges/<domain>/` + Dockerfile** that starts the service when run, follows the `critical.<ext>` + debug-switch pattern, ships `README.md` + `solution.md`, and is picked up by CI automatically (no matrix edit). Draft it as an OpenSpec change first.
+- **New challenge = own folder under `challenges/<domain>/` + Dockerfile** that starts the service when run, follows the `critical.<ext>` + debug-level pattern, ships `README.md` + `solution.md`, and is picked up by CI automatically (no matrix edit). Draft it as an OpenSpec change first.

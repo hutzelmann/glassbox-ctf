@@ -1,5 +1,5 @@
 <?php
-$debugSuffix = (isset($_GET['debug']) && $_GET['debug'] === '1') ? '?debug=1' : '';
+require 'debug.php';
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -8,7 +8,7 @@ $debugSuffix = (isset($_GET['debug']) && $_GET['debug'] === '1') ? '?debug=1' : 
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>Chat with the Admin</title>
   <link rel="stylesheet" href="pico.min.css"/>
-  <?php if (isset($_GET['debug']) && $_GET['debug'] === '1'): ?>
+  <?php if ($debugLevel >= 2): ?>
   <script src="codemirror-html-edit.js" defer></script>
   <?php endif; ?>
  </head>
@@ -24,11 +24,7 @@ $debugSuffix = (isset($_GET['debug']) && $_GET['debug'] === '1') ? '?debug=1' : 
       <nav>
        <ul></ul>
        <ul>
-        <li>
-         <label>
-          <input type="checkbox" role="switch"<?php echo isset($_GET['debug']) && $_GET['debug'] === '1' ? ' checked' : ''; ?> onchange="var p=new URLSearchParams(window.location.search);this.checked?p.set('debug','1'):p.delete('debug');var s=p.toString();window.location.replace(s?'?'+s:window.location.pathname)"/>
-         </label>
-        </li>
+        <li><?php debug_switch(); ?></li>
         <li><a href="index.php<?php echo $debugSuffix; ?>" role="button" class="secondary">Home</a></li>
        </ul>
       </nav>
@@ -47,7 +43,7 @@ $debugSuffix = (isset($_GET['debug']) && $_GET['debug'] === '1') ? '?debug=1' : 
     <?php if (filter_var($_POST['link'], FILTER_VALIDATE_URL) !== false): ?>
      <?php $link = $_POST['link']; ?>
      <?php $answer = shell_exec('python3 ' . escapeshellarg(__DIR__ . '/adminclicks.py') . ' ' . escapeshellarg($link) . ' 2>&1'); if (empty($answer)) { $answer = '(empty)'; } ?>
-     <?php if (isset($_GET['debug']) && $_GET['debug'] === '1'): ?>
+     <?php if ($debugLevel >= 1): ?>
      <?php $parsed = json_decode($answer, true); $scriptError = ($parsed === null); $jsErrors = $parsed['js_errors'] ?? []; $pageSource = $parsed['page_source'] ?? ''; ?>
      <?php endif; ?>
     <p><strong>Admin:</strong> No, I had a look and the page seems fine to me.</p>
@@ -57,7 +53,7 @@ $debugSuffix = (isset($_GET['debug']) && $_GET['debug'] === '1') ? '?debug=1' : 
     <a href="chat.php<?php echo $debugSuffix; ?>" role="button" class="secondary">Restart Chat</a>
     <?php endif; ?>
     <?php endif; ?>
-    <?php if (isset($_GET['debug']) && $_GET['debug'] === '1' && isset($jsErrors) && isset($pageSource)): ?>
+    <?php if ($debugLevel >= 1 && isset($jsErrors) && isset($pageSource)): ?>
     <hr/>
     <?php if (isset($scriptError) && $scriptError): ?>
     <h2>Script Error</h2>
@@ -69,8 +65,10 @@ $debugSuffix = (isset($_GET['debug']) && $_GET['debug'] === '1') ? '?debug=1' : 
     <?php else: ?>
     <pre><?php foreach ($jsErrors as $e) { echo htmlspecialchars('[' . $e['level'] . '] ' . $e['message']) . "\n"; } ?></pre>
     <?php endif; ?>
+    <?php if ($debugLevel >= 2): ?>
     <h2>Page Seen by Admin</h2>
     <textarea data-codemirror="html-edit" rows="20"><?php echo htmlspecialchars($pageSource); ?></textarea>
+    <?php endif; ?>
     <?php endif; ?>
     <?php endif; ?>
    </article>

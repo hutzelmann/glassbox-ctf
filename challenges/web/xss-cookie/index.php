@@ -1,5 +1,5 @@
 <?php
-$debugSuffix = (isset($_GET['debug']) && $_GET['debug'] === '1') ? '?debug=1' : '';
+require 'debug.php';
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -21,11 +21,7 @@ $debugSuffix = (isset($_GET['debug']) && $_GET['debug'] === '1') ? '?debug=1' : 
       <nav>
        <ul></ul>
        <ul>
-        <li>
-         <label>
-          <input type="checkbox" role="switch"<?php echo isset($_GET['debug']) && $_GET['debug'] === '1' ? ' checked' : ''; ?> onchange="var p=new URLSearchParams(window.location.search);this.checked?p.set('debug','1'):p.delete('debug');var s=p.toString();window.location.replace(s?'?'+s:window.location.pathname)"/>
-         </label>
-        </li>
+        <li><?php debug_switch(); ?></li>
        </ul>
       </nav>
      </div>

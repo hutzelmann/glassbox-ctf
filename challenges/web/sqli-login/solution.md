@@ -1,7 +1,7 @@
 # SQL Injection: Login Bypass — Solution
 
 > ⚠️ **Spoilers below.** Flags, payloads, and the fix. If you want to solve it
-> yourself, close this file and turn on the debug switch instead.
+> yourself, close this file and turn the debug dial up instead.
 
 ## The vulnerability
 
@@ -16,8 +16,9 @@ $result = $db->query($sql);
 ```
 
 Anything you type in `username`/`password` becomes *SQL syntax*, not just data.
-Turn on the debug switch to watch the query change as you type — that is the
-whole point of this challenge.
+Set the debug dial to **Debug** (`?debug=2`) to watch the query change as you
+type — that is the whole point of this challenge. (**Hints**, `?debug=1`, gives
+you the MySQL editors and the raw database error, but not the query.)
 
 ## Walkthrough
 
@@ -95,7 +96,7 @@ x' OR SLEEP(5) -- -
 
 `SLEEP(5)` runs per evaluated row; scale the number or use
 `BENCHMARK(10000000, MD5('a'))` to load the CPU. Keep it small on a shared
-machine — the goal is to *observe* the slowdown in the debug timing, not to wedge
+machine — the goal is to *observe* the slowdown, not to wedge
 your laptop.
 
 ### f) The fix

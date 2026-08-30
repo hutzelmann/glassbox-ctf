@@ -36,8 +36,8 @@ actually sent:
   read the raw HTML.
 - **Inspector** — open DevTools (**F12**), find the *Elements* panel, and expand
   the node; comments are shown greyed out.
-- **Debug switch** — flip the toggle in the header (`?debug=1`) to read
-  `critical.php` directly in the editor.
+- **Debug dial** — set it to **Hints** (`?debug=1`) to read `critical.php`
+  directly in the editor.
 
 Any of the three reveals the comment:
 
@@ -52,8 +52,9 @@ flags.
 
 ### d) Try the controls
 
-Flip the **debug** switch off and on and watch the page swap to the read-only
-`critical.php` view — the same switch exposes real server internals on the later
+Turn the **debug** dial from **Off** to **Hints** and watch the page swap to
+the read-only `critical.php` view, then to **Debug** for the request as PHP
+parsed it — the same dial exposes real server internals on the later
 challenges. Open the **Fix** button to see the in-browser editor; there is
 nothing to patch here, but this is the editor you will use to fix every real
 bug that follows.

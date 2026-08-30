@@ -1,5 +1,5 @@
 <?php
-$debugSuffix = (isset($_GET['debug']) && $_GET['debug'] === '1') ? '?debug=1' : '';
+require 'debug.php';
 $logFile = __DIR__ . '/log.txt';
 $maxEntries = 25;
 
@@ -46,12 +46,8 @@ $entries = array_reverse($lines);
       <nav>
        <ul></ul>
        <ul>
-        <li>
-         <label>
-          <input type="checkbox" role="switch"<?php echo isset($_GET['debug']) && $_GET['debug'] === '1' ? ' checked' : ''; ?> onchange="var p=new URLSearchParams(window.location.search);this.checked?p.set('debug','1'):p.delete('debug');var s=p.toString();window.location.replace(s?'?'+s:window.location.pathname)"/>
-         </label>
-        </li>
-        <li><a href="log.php?action=clear<?php echo $debugSuffix ? '&debug=1' : ''; ?>" role="button">Clear Log</a></li>
+        <li><?php debug_switch(); ?></li>
+        <li><a href="log.php?action=clear<?php echo $debugLevel > 0 ? '&debug=' . $debugLevel : ''; ?>" role="button">Clear Log</a></li>
         <li><a href="index.php<?php echo $debugSuffix; ?>" role="button" class="secondary">Home</a></li>
        </ul>
       </nav>

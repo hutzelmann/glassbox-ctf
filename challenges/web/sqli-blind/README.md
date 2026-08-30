@@ -36,15 +36,24 @@ Then open <http://localhost:9000/>.
 - **Fix button** — opens the one vulnerable snippet (`critical.php`) in an
   in-browser editor. Patch it, **Save**, and the running page uses your version
   immediately. **Restore Original** puts the bug back.
-- **Debug switch** (the toggle in the header, or `?debug=1`) — opens the glass
-  box: the *exact SQL string* your input built, a timing panel (**query
-  runtime**, **CPU user/sys**, **block I/O**), and the rows the query returned.
-  The live page shows you none of this — a real blind target stays silent. The
-  skill here is reading the answer from **timing and yes/no behavior**, the way
-  you would against a target with no debug view; the timing panel is your
-  instrument, and the rows and SQL are there to check your reasoning.
+- **Debug dial** (the selector in the header) — three settings, and here the
+  split matters more than anywhere else on the ladder:
+  - **Off** — total silence, exactly like a real blind target.
+  - **Hints** (`?debug=1`) — MySQL editors on the login fields, the database's
+    own error message, and the **timing panel** (*query runtime*, *CPU
+    user/sys*, *block I/O*). The timing panel is your **instrument**: this rung
+    is about reading the answer from timing and yes/no behavior. Note it is a
+    friendlier instrument than reality — the server measures its own query, so
+    you get a cleaner number than the wall-clock a real attacker times over the
+    network.
+  - **Debug** (`?debug=2`) — the *exact SQL string* your input built and the rows
+    the query returned. These are the **check**, not the instrument: use them to
+    confirm reasoning you already did at **Hints**.
+
+  Solving this rung at **Debug** teaches you nothing blind injection has to
+  teach. Stay at **Hints** as long as you can bear it.
 
 ## Stuck?
 
 The full walkthrough — payloads, flags, and the fix — is in
-[solution.md](solution.md). It contains spoilers; try the debug switch first.
+[solution.md](solution.md). It contains spoilers; turn the debug dial up first.

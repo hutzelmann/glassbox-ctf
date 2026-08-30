@@ -1,19 +1,19 @@
 <?php
+require 'debug.php';
 $error = null;
-$debugSuffix = (isset($_GET['debug']) && $_GET['debug'] === '1') ? '?debug=1' : '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (isset($_POST['restore'])) {
         if (@file_put_contents('critical.php', file_get_contents('critical.orig.php')) === false) {
             $error = 'Failed to restore: permission denied.';
         } else {
-            header('Location: fix.php?restored=1' . ($debugSuffix ? '&debug=1' : ''));
+            header('Location: fix.php?restored=1' . ($debugLevel > 0 ? '&debug=' . $debugLevel : ''));
             exit;
         }
     } elseif (isset($_POST['save']) && isset($_POST['content'])) {
         if (@file_put_contents('critical.php', $_POST['content']) === false) {
             $error = 'Failed to save: permission denied.';
         } else {
-            header('Location: fix.php?saved=1' . ($debugSuffix ? '&debug=1' : ''));
+            header('Location: fix.php?saved=1' . ($debugLevel > 0 ? '&debug=' . $debugLevel : ''));
             exit;
         }
     }

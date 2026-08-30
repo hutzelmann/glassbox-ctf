@@ -1,7 +1,7 @@
 # SQL Injection: INSERT Break-Out — Solution
 
 > ⚠️ **Spoilers below.** The flag, the payloads, and the fix. If you want to
-> solve it yourself, close this file and turn on the debug switch instead.
+> solve it yourself, close this file and turn the debug dial up instead.
 
 ## The vulnerability
 
@@ -19,9 +19,10 @@ $insertOk = $db->query($sql);
 `$regUser` comes straight from the `reg_username` POST field. Anything you type
 there becomes *SQL syntax*, not just a stored value — which means a single
 quote lets you close the `VALUES` string and keep writing the statement
-yourself. Turn on the debug switch to watch the `INSERT` change as you register,
-and to see the whole `users` table afterward — that is the point of this
-challenge.
+yourself. Set the debug dial to **Debug** (`?debug=2`) to watch the `INSERT`
+change as you register, and to see the whole `users` table afterward — that is
+the point of this challenge. (**Hints**, `?debug=1`, gives you the MySQL editor
+on the registration username and the raw database error, but not the statement.)
 
 The `users` table is `users(uid, username UNIQUE, password)`. The administrator
 is `uid 1`, and its `password` column stores the flag.
@@ -29,8 +30,9 @@ is `uid 1`, and its `password` column stores the flag.
 ## Walkthrough
 
 Payloads go in the **Register** form's **username** field (`reg_username`); the
-registration password can be anything. Turn on the debug switch first, and use
-the **Reset** button to clear injected rows between attempts.
+registration password can be anything. Set the debug dial to **Debug**
+(`?debug=2`) first, and use the **Reset** button to clear injected rows between
+attempts.
 
 ### a) & b) Break out of the `INSERT`
 
@@ -39,7 +41,7 @@ single quote closes that string; a `),(` starts a second row; and a trailing
 `-- ` (dash, dash, **space**) comments out the rest of the statement — including
 the app's own dangling `'$regPassHash')`. So a payload shaped like
 `x', 'y'),( … ) -- ` turns the app's single-row `INSERT` into a *two-row* one
-whose second row you fully control. That extra row appearing in the debug
+whose second row you fully control. That extra row appearing in the **Debug**
 `users` table is your proof the break-out worked.
 
 ### c) Read the admin's stored secret
@@ -55,8 +57,9 @@ reg_password:  whatever
 
 (Note the trailing space after `-- `.) The `INSERT` becomes a two-row insert:
 the first row is `('pwn', 'x')`; the second row's username is the result of
-`SELECT password FROM users WHERE uid=1`. After you submit, the debug `users`
-table shows a fresh row (`uid 3`) whose **username** is the admin's secret:
+`SELECT password FROM users WHERE uid=1`. After you submit, the **Debug**
+`users` table shows a fresh row (`uid 3`) whose **username** is the admin's
+secret:
 
 - **Flag (admin's stored secret):** `N0tAHa5Hbu1y0urFLA9`
 

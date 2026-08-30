@@ -41,7 +41,7 @@ way if you use Docker instead of podman.
 ## The glass box
 
 Nothing to open here — there is no `critical.php`, no **Fix** button, and no
-debug switch. Those tools show up starting with the [hello](../hello/)
+debug dial. Those tools show up starting with the [hello](../hello/)
 challenge, where there is actually a running page to inspect.
 
 ## Stuck?

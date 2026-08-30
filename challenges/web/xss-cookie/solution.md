@@ -1,7 +1,7 @@
 # Cross-Site Scripting: Cookie Theft — Solution
 
 > ⚠️ **Spoilers below.** The flag, every payload, and the fix. If you want to
-> solve it yourself, close this file and turn on the debug switch instead.
+> solve it yourself, close this file and turn the debug dial up instead.
 
 ## The vulnerability
 
@@ -15,9 +15,9 @@
 
 There is no `htmlspecialchars`, so whatever you put in `q` is parsed as HTML —
 including a `<script>` tag. That is **reflected XSS**: your input bounces off the
-server and executes in whoever's browser rendered the response. Turn on the debug
-switch to get a multi-line editor for `q` and to see the raw session cookie the
-server hands the page.
+server and executes in whoever's browser rendered the response. Set the debug
+dial to **Hints** (`?debug=1`) to get a multi-line editor for `q` and to see the
+session cookie the server hands the page.
 
 ## Walkthrough
 
@@ -36,8 +36,8 @@ Confirm it is HTML, not text, by injecting a tag: search for `<b>hi</b>` and wat
 
 ### b) Read your own cookie
 
-Prove code execution reads the cookie. In the search box (use the debug editor so
-the tag survives):
+Prove code execution reads the cookie. In the search box (use the **Hints**
+editor so the tag survives):
 
 ```html
 <script>alert(document.cookie)</script>
@@ -116,9 +116,9 @@ Set that cookie on `search.php` (task **c** method) and you are greeted
 
 Look at what the admin experienced. The link opened a perfectly ordinary search
 page that said "returned no results" — the payload produced no visible output,
-and the `display:none` iframe is invisible. Turn on debug in the chat to read the
-**Page Seen by Admin** dump and the admin bot's JS console: no errors, nothing on
-screen. A convincing "hey, our search page looks broken, can you check this link?"
+and the `display:none` iframe is invisible. In the chat, **Hints** (`?debug=1`)
+shows the admin bot's JS console — no errors — and **Debug** (`?debug=2`) adds the
+**Page Seen by Admin** dump: nothing on screen either. A convincing "hey, our search page looks broken, can you check this link?"
 is all it took.
 
 ## Flags

@@ -36,10 +36,16 @@ Then open <http://localhost:9000/>.
   (`critical.php`) in an in-browser editor. On the real challenges you patch the
   bug here and **Save** to run your version immediately; **Restore Original**
   puts it back. Here there is no bug — this is just the tour, so have a look.
-- **Debug switch** (the toggle in the header, or `?debug=1`) — turns on the
-  extra "glass box" output. On the real challenges it shows the exact query the
-  server built, the rows it returned, and more. Here it swaps the page for a
-  read-only view of `critical.php` itself.
+- **Debug dial** (the selector in the header) — three settings, and every
+  challenge has them. On the real challenges **Hints** gives you a proper editor
+  for the input you attack through plus the error your attempt provoked, while
+  **Debug** shows the exact query the server built, the rows it returned, and
+  more. Here:
+  - **Hints** (`?debug=1`) swaps the page for a read-only view of `critical.php`
+    itself — the whole point of the tour.
+  - **Debug** (`?debug=2`) adds the request as PHP parsed it (`$_GET`, `$_POST`,
+    headers), a small preview of the kind of internals the later challenges
+    expose.
 
 ## Stuck?
 

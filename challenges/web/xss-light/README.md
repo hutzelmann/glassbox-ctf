@@ -33,12 +33,18 @@ Then open <http://localhost:9000/>.
 - **Fix button** — opens the one vulnerable snippet (`critical.php`) in an
   in-browser editor. Patch it, **Save**, and the running page uses your version
   immediately. **Restore Original** puts the bug back.
-- **Debug switch** (the toggle in the header, or `?debug=1`) — turns the search
-  box into a roomy CodeMirror editor so you can type multi-character payloads
-  comfortably instead of fighting a one-line text input. This is the "glass box":
-  compose your injection in the open and watch it land in the response.
+- **Debug dial** (the selector in the header) — three settings:
+  - **Off** — a plain one-line search box, as the site ships.
+  - **Hints** (`?debug=1`) — the search box becomes a roomy CodeMirror editor
+    with HTML highlighting and live diagnostics, so you compose a multi-character
+    payload in the open instead of fighting a text input. It flags malformed
+    markup and unknown tags; it does not tell you what to write.
+  - **Debug** (`?debug=2`) — what the server actually received in `$_GET["q"]`
+    after URL-decoding, plus the vulnerable snippet itself, so you can see the
+    unescaped `echo` that lets your markup through. That last part is the answer,
+    so save it for after you have tried.
 
 ## Stuck?
 
 The full walkthrough — payloads, the flag, and the fix — is in
-[solution.md](solution.md). It contains spoilers; try the debug switch first.
+[solution.md](solution.md). It contains spoilers; turn the debug dial up first.

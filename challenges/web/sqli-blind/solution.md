@@ -1,7 +1,7 @@
 # SQL Injection: Blind Extraction — Solution
 
 > ⚠️ **Spoilers below.** Flags, payloads, and the fix. If you want to solve it
-> yourself, close this file and turn on the debug switch instead.
+> yourself, close this file and turn the debug dial up instead.
 
 ## The vulnerability
 
@@ -28,19 +28,21 @@ Two channels are left to you:
 - **Boolean** — did the login succeed or fail? Craft a payload whose success
   depends on a fact you want to test, and the `Welcome!` / error message becomes
   a single bit of answer.
-- **Timing** — how long did the query take? The debug panel reports **query
-  runtime**, **CPU**, and **block I/O**. Make a true guess cost time and a false
+- **Timing** — how long did the query take? The **Hints** panel (`?debug=1`)
+  reports **query runtime**, **CPU**, and **block I/O**. Make a true guess cost time and a false
   guess cost nothing, and the clock tells you the bit — even when the page gives
   no visible tell at all.
 
 ## Walkthrough
 
 Payloads go in the **username** field; the **password** field can be anything
-(the trailing `-- -` comments the password check away). Turn on the debug switch
-so you can watch the SQL and read the timing panel. (Debug also prints the query's
-returned rows — a convenient way to confirm your blind guesses landed. Treat that
-as training wheels: the skill is to extract the answer through the boolean and
-timing channels, the way you would against a real target that has no debug view.)
+(the trailing `-- -` comments the password check away). Set the debug dial to
+**Hints** (`?debug=1`) to read the timing panel — that is the instrument this
+challenge is about. **Debug** (`?debug=2`) additionally shows the SQL and the
+query's returned rows, a convenient way to confirm your blind guesses landed.
+Treat that level as training wheels: the skill is to extract the answer through
+the boolean and timing channels, the way you would against a real target that has
+no debug view at all.)
 
 ### a) Read the `admin` password — boolean-based
 
@@ -80,7 +82,7 @@ username: admin' AND IF(SUBSTRING(password,1,1)='T', SLEEP(2), 0) -- -
 password: x
 ```
 
-Submit, then look at **Query runtime** in the debug panel: a true guess shows
+Submit, then look at **Query runtime** in the **Hints** panel: a true guess shows
 ~2000 ms, a false guess shows a few ms. Same character-by-character extraction,
 driven by the clock rather than the message.
 

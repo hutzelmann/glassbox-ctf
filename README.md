@@ -14,15 +14,29 @@ It is built for classrooms and self-study: textbook, well-understood
 vulnerabilities (the OWASP-class web bugs today, more domains coming), fictional
 flags, and throwaway containers that run completely offline.
 
-> _Screenshot slot: `hero.gif` — exploit lands → debug reveals the internals → Fix
-> patches `critical.php` → exploit now fails. (see `docs/img/`)_
+> _Screenshot slot: `hero.gif` — exploit lands → the debug dial goes Hints →
+> Debug and reveals the internals → Fix patches `critical.php` → exploit now
+> fails. (see `docs/img/`)_
 
 ## Why it's different
 
-- **The debug switch (`?debug=1`).** A sticky toggle on every page reveals the
-  server's internals for *this* vulnerability — the literal SQL string your
-  injection produced, the returned rows, the admin's rendered page, JS console
-  errors. You watch the bug work instead of guessing.
+- **A debug dial with three settings, not an on/off switch.** Every page carries
+  a sticky selector — **Off**, **Hints**, **Debug** — so you choose how much of
+  the answer you want.
+  - **Off** is the challenge as a real target would give it to you.
+  - **Hints** (`?debug=1`) turns the input you attack through into a proper
+    editor — syntax highlighting and live diagnostics for the language the
+    server actually parses your payload as — and surfaces the *symptom* your
+    attempt provoked: the database's own error message, the admin browser's JS
+    console errors, the query timing a blind attacker measures. It tells you
+    **why your attempt failed**, never what the answer is.
+  - **Debug** (`?debug=2`) opens the glass box the rest of the way: the literal
+    SQL string your injection produced, the rows it returned, the page the victim
+    actually rendered, the raw request as the server parsed it, and the
+    vulnerable source itself.
+
+  Stuck on a payload is a different problem from not understanding the bug, and
+  the dial lets you buy exactly the help you need.
 - **Fix it live.** Each challenge isolates its single vulnerable snippet in a
   `critical.php` file. The built-in **Fix** editor (CodeMirror, with PHP linting)
   saves your edit straight into the *running* app — retry your own exploit against
@@ -41,9 +55,9 @@ first challenge:
 podman run --rm -p 9000:80 ghcr.io/hutzelmann/glassbox-ctf-hello
 ```
 
-Open <http://localhost:9000/>, find your first flag, then flip the **debug**
-toggle in the header and click **Fix** to meet the two controls every challenge
-shares. That's the whole workflow. When you're done, `Ctrl+C` — the container
+Open <http://localhost:9000/>, find your first flag, then turn the **debug**
+dial in the header up to **Hints** and then **Debug**, and click **Fix**, to meet
+the two controls every challenge shares. That's the whole workflow. When you're done, `Ctrl+C` — the container
 leaves nothing behind.
 
 New to containers? Start with the runtime check, which just proves your setup

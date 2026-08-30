@@ -1,7 +1,6 @@
 <?php
 session_start();
-$debugSuffix = (isset($_GET['debug']) && $_GET['debug'] === '1') ? '?debug=1' : '';
-$isDebug = isset($_GET['debug']) && $_GET['debug'] === '1';
+require 'debug.php';
 
 $db = new mysqli("127.0.0.1", "hacky", "Ju5TRE4D1t", "hacky");
 if ($db->connect_errno) {
@@ -80,7 +79,7 @@ if (!empty($_POST) && isset($_POST['login_submit'])) {
             $loggedInUser = $regUser;
             $justRegistered = true;
         }
-        if ($isDebug) {
+        if ($debugLevel >= 2) {
             $usersResult = $db->query("SELECT uid, username, password FROM users");
             if ($usersResult) {
                 while ($r = $usersResult->fetch_assoc()) {
@@ -92,7 +91,7 @@ if (!empty($_POST) && isset($_POST['login_submit'])) {
     }
 }
 
-if ($isDebug && empty($debugAllUsers)) {
+if ($debugLevel >= 2 && empty($debugAllUsers)) {
     $usersResult = $db->query("SELECT uid, username, password FROM users");
     if ($usersResult) {
         while ($r = $usersResult->fetch_assoc()) {
@@ -109,7 +108,10 @@ if ($isDebug && empty($debugAllUsers)) {
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>User Registration</title>
   <link rel="stylesheet" href="pico.min.css"/>
-  <?php if ($isDebug): ?>
+  <?php if ($debugLevel >= 1): ?>
+  <script src="codemirror-sql-input.js" defer></script>
+  <?php endif; ?>
+  <?php if ($debugLevel >= 2): ?>
   <script src="codemirror-sql-edit.js" defer></script>
   <?php endif; ?>
  </head>
@@ -132,12 +134,8 @@ if ($isDebug && empty($debugAllUsers)) {
       <nav>
        <ul></ul>
        <ul>
-        <li>
-         <label>
-          <input type="checkbox" role="switch"<?php echo $isDebug ? ' checked' : ''; ?> onchange="var p=new URLSearchParams(window.location.search);this.checked?p.set('debug','1'):p.delete('debug');var s=p.toString();window.location.replace(s?'?'+s:window.location.pathname)"/>
-         </label>
-        </li>
-        <li><a href="./?action=reset<?php echo $isDebug ? '&debug=1' : ''; ?>" role="button">Reset</a></li>
+        <li><?php debug_switch(); ?></li>
+        <li><a href="./?action=reset<?php echo $debugLevel > 0 ? '&debug=' . $debugLevel : ''; ?>" role="button">Reset</a></li>
         <li><a href="fix.php<?php echo $debugSuffix; ?>" role="button">Fix</a></li>
        </ul>
       </nav>
@@ -165,21 +163,26 @@ if ($isDebug && empty($debugAllUsers)) {
      <article>
       <header><strong>Register</strong></header>
       <form action="./<?php echo $debugSuffix; ?>" method="POST">
+       <?php if ($debugLevel >= 1): ?>
+       <label>Username<textarea name="reg_username" data-codemirror="sql-input" rows="1" placeholder="Username"></textarea></label>
+       <?php else: ?>
        <label>Username<input type="text" name="reg_username" placeholder="Username"/></label>
+       <?php endif; ?>
        <label>Password<input type="password" name="reg_password" placeholder="Password"/></label>
        <input type="submit" name="register_submit" value="Register"/>
       </form>
      </article>
     </div>
     <?php endif; ?>
-    <?php if ($isDebug): ?>
+    <?php if ($debugLevel >= 1 && $debugDbError !== null): ?>
+    <hr/>
+    <p><mark>DB Error: <?php echo htmlspecialchars($debugDbError); ?></mark></p>
+    <?php endif; ?>
+    <?php if ($debugLevel >= 2): ?>
     <hr/>
     <article>
     <?php if ($sql !== null): ?>
     <textarea data-codemirror="sql-edit" hidden><?php echo htmlspecialchars($sql); ?></textarea>
-    <?php if ($debugDbError !== null): ?>
-    <p><mark>DB Error: <?php echo htmlspecialchars($debugDbError); ?></mark></p>
-    <?php endif; ?>
     <?php endif; ?>
     <figure><table>
      <thead><tr><th>uid</th><th>username</th><th>password</th></tr></thead>

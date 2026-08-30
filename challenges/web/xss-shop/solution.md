@@ -1,7 +1,7 @@
 # Cross-Site Scripting: Stored — Solution
 
 > ⚠️ **Spoilers below.** Flags, payloads, and the fix. If you want to solve it
-> yourself, close this file and turn on the debug switch instead.
+> yourself, close this file and turn the debug dial up instead.
 
 ## The vulnerability
 

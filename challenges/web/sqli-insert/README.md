@@ -40,14 +40,20 @@ Then open <http://localhost:9000/> (the port is whatever you mapped with `-p`).
 - **Fix button** — opens the one vulnerable snippet (`critical.php`) in an
   in-browser editor. Patch it, **Save**, and the running page uses your version
   immediately. **Restore Original** puts the bug back.
-- **Debug switch** (the toggle in the header, or `?debug=1`) — shows you the
-  *exact `INSERT` string* the server built from your input **and** the full
-  `users` table after the write. This is the "glass box": register once, then
-  watch which rows actually landed in the table.
+- **Debug dial** (the selector in the header) — three settings:
+  - **Off** — the challenge as shipped.
+  - **Hints** (`?debug=1`) — the registration username becomes a MySQL editor,
+    and the *database's own error message* appears instead of the generic
+    "registration failed". On this rung the error is unusually informative: a
+    malformed `INSERT` tells you a lot about the statement you are injecting
+    into.
+  - **Debug** (`?debug=2`) — the *exact `INSERT` string* the server built from
+    your input **and** the full `users` table after the write. Register once,
+    then watch which rows actually landed.
 - **Reset button** — deletes every row you injected (everything except the
   original admin) and resets the counter. Use it to clean up between attempts.
 
 ## Stuck?
 
 The full walkthrough — payloads, the flag, and the fix — is in
-[solution.md](solution.md). It contains spoilers; try the debug switch first.
+[solution.md](solution.md). It contains spoilers; turn the debug dial up first.

@@ -4,7 +4,7 @@ $items = [
     "Banana" => ["price" => 2.99, "description" => "A ripe yellow banana."],
     "Cherry" => ["price" => 0.99, "description" => "A sweet red cherry."]
 ];
-$debugSuffix = (isset($_GET['debug']) && $_GET['debug'] === '1') ? '?debug=1' : '';
+require 'debug.php';
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -13,8 +13,11 @@ $debugSuffix = (isset($_GET['debug']) && $_GET['debug'] === '1') ? '?debug=1' : 
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>Shopping Cart</title>
   <link rel="stylesheet" href="pico.min.css"/>
-  <?php if (isset($_GET['debug']) && $_GET['debug'] === '1'): ?>
+  <?php if ($debugLevel >= 1): ?>
   <script src="codemirror-html-edit.js" defer></script>
+  <?php endif; ?>
+  <?php if ($debugLevel >= 2): ?>
+  <script src="codemirror-php-view.js" defer></script>
   <?php endif; ?>
  </head>
  <body>
@@ -30,11 +33,7 @@ $debugSuffix = (isset($_GET['debug']) && $_GET['debug'] === '1') ? '?debug=1' : 
      <nav>
       <ul></ul>
       <ul>
-       <li>
-        <label>
-         <input type="checkbox" role="switch"<?php echo isset($_GET['debug']) && $_GET['debug'] === '1' ? ' checked' : ''; ?> onchange="var p=new URLSearchParams(window.location.search);this.checked?p.set('debug','1'):p.delete('debug');var s=p.toString();window.location.replace(s?'?'+s:window.location.pathname)"/>
-        </label>
-       </li>
+        <li><?php debug_switch(); ?></li>
        <li><a href="fix.php<?php echo $debugSuffix; ?>" role="button">Fix</a></li>
       </ul>
      </nav>
@@ -93,11 +92,7 @@ $debugSuffix = (isset($_GET['debug']) && $_GET['debug'] === '1') ? '?debug=1' : 
      <nav>
       <ul></ul>
       <ul>
-       <li>
-        <label>
-         <input type="checkbox" role="switch"<?php echo isset($_GET['debug']) && $_GET['debug'] === '1' ? ' checked' : ''; ?> onchange="var p=new URLSearchParams(window.location.search);this.checked?p.set('debug','1'):p.delete('debug');var s=p.toString();window.location.replace(s?'?'+s:window.location.pathname)"/>
-        </label>
-       </li>
+        <li><?php debug_switch(); ?></li>
        <li><a href="fix.php<?php echo $debugSuffix; ?>" role="button">Fix</a></li>
       </ul>
      </nav>
@@ -127,6 +122,15 @@ $debugSuffix = (isset($_GET['debug']) && $_GET['debug'] === '1') ? '?debug=1' : 
     </table>
   <?php require 'critical.php'; ?>
   <?php endif;?>
+  <?php if ($debugLevel >= 2): ?>
+  <hr/>
+  <p><strong>What the server received.</strong> <code>$_POST["comment"]</code>
+  exactly as PHP handed it to the code below:</p>
+  <pre><code><?php echo htmlspecialchars($_POST['comment'] ?? '(not set)'); ?></code></pre>
+  <p><strong>The code that printed it.</strong> This is <code>critical.php</code>,
+  the snippet the Fix button edits:</p>
+  <textarea data-codemirror="php-view" hidden><?php echo htmlspecialchars(file_get_contents('critical.php')); ?></textarea>
+  <?php endif; ?>
   <div class="grid">
     <button onclick="checkOrder()">Packaged and Shipped</button>
     <a href="#" onclick="history.back(); return false;" role="button" class="secondary">Return</a>

@@ -1,5 +1,5 @@
 <?php
-$debugSuffix = (isset($_GET['debug']) && $_GET['debug'] === '1') ? '?debug=1' : '';
+require 'debug.php';
 // Just init the database connection
 $db = new mysqli("127.0.0.1", "hacky", "Ju5TRE4D1t", "hacky");
 if ($db->connect_errno) {
@@ -21,7 +21,7 @@ if (!empty($_POST) && !empty($_POST["username"]) && !empty($_POST["password"])) 
     if (!empty($row)) {
       $username = $row["username"];
     }
-    if (isset($_GET['debug']) && $_GET['debug'] === '1') {
+    if ($debugLevel >= 2) {
       $debugFields = array_map(fn($f) => $f->name, $result->fetch_fields());
       $result->data_seek(0);
       while ($r = $result->fetch_assoc()) {
@@ -39,7 +39,10 @@ if (!empty($_POST) && !empty($_POST["username"]) && !empty($_POST["password"])) 
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>Admin Login</title>
   <link rel="stylesheet" href="pico.min.css"/>
-  <?php if (isset($_GET['debug']) && $_GET['debug'] === '1'): ?>
+  <?php if ($debugLevel >= 1): ?>
+  <script src="codemirror-sql-input.js" defer></script>
+  <?php endif; ?>
+  <?php if ($debugLevel >= 2): ?>
   <script src="codemirror-sql-edit.js" defer></script>
   <?php endif; ?>
  </head>
@@ -62,11 +65,7 @@ if (!empty($_POST) && !empty($_POST["username"]) && !empty($_POST["password"])) 
       <nav>
        <ul></ul>
        <ul>
-        <li>
-         <label>
-          <input type="checkbox" role="switch"<?php echo isset($_GET['debug']) && $_GET['debug'] === '1' ? ' checked' : ''; ?> onchange="var p=new URLSearchParams(window.location.search);this.checked?p.set('debug','1'):p.delete('debug');var s=p.toString();window.location.replace(s?'?'+s:window.location.pathname)"/>
-         </label>
-        </li>
+        <li><?php debug_switch(); ?></li>
         <li><a href="fix.php<?php echo $debugSuffix; ?>" role="button">Fix</a></li>
        </ul>
       </nav>
@@ -74,8 +73,13 @@ if (!empty($_POST) && !empty($_POST["username"]) && !empty($_POST["password"])) 
     </header>
     <?php if (empty($_POST)):?>
     <form action="./<?php echo $debugSuffix; ?>" method="POST">
+     <?php if ($debugLevel >= 1):?>
+     <label>Username<textarea name="username" data-codemirror="sql-input" rows="1" placeholder="Username"></textarea></label>
+     <label>Password<textarea name="password" data-codemirror="sql-input" rows="1" placeholder="Password"></textarea></label>
+     <?php else:?>
      <label>Username<input type="text" name="username" placeholder="Username"/></label>
      <label>Password<input type="text" name="password" placeholder="Password"/></label>
+     <?php endif;?>
      <input type="submit" value="Login"/>
     </form>
  <script>
@@ -118,12 +122,14 @@ if (!empty($_POST) && !empty($_POST["username"]) && !empty($_POST["password"])) 
      <p><mark>I am sorry, but your login data is wrong.</mark></p>
     <?php endif;?>
     <a href="./<?php echo $debugSuffix; ?>" role="button" class="secondary">Back to Login</a>
-    <?php if (isset($_GET['debug']) && $_GET['debug'] === '1' && isset($sql)):?>
+    <?php if ($debugLevel >= 1 && $debugDbError !== null):?>
+    <hr/>
+    <p><mark>DB Error: <?php echo htmlspecialchars($debugDbError); ?></mark></p>
+    <?php endif;?>
+    <?php if ($debugLevel >= 2 && isset($sql)):?>
     <hr/>
     <textarea data-codemirror="sql-edit" hidden><?php echo htmlspecialchars($sql); ?></textarea>
-    <?php if ($debugDbError !== null):?>
-    <p><mark>DB Error: <?php echo htmlspecialchars($debugDbError); ?></mark></p>
-    <?php else:?>
+    <?php if ($debugDbError === null):?>
     <figure><table>
      <thead><tr><?php foreach ($debugFields as $f):?><th><?php echo htmlspecialchars($f); ?></th><?php endforeach;?></tr></thead>
      <tbody>

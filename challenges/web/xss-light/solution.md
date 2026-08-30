@@ -1,7 +1,7 @@
 # Cross-Site Scripting: Reflected — Solution
 
 > ⚠️ **Spoilers below.** The flag, payloads, and the fix. If you want to solve it
-> yourself, close this file and turn on the debug switch instead.
+> yourself, close this file and turn the debug dial up instead.
 
 ## The vulnerability
 
@@ -22,9 +22,10 @@ requesting runs in their browser.
 
 ## Walkthrough
 
-Payloads go in the **search field** (the `q` parameter). In normal mode it is a
-one-line text input; flip the debug switch to type them into a comfortable
-multi-line editor instead.
+Payloads go in the **search field** (the `q` parameter). At **Off** it is a
+one-line text input; set the debug dial to **Hints** (`?debug=1`) to type them
+into a comfortable multi-line editor instead. **Debug** (`?debug=2`) additionally
+shows the raw `$_GET["q"]` and the vulnerable snippet.
 
 ### a) Get JavaScript to run
 

@@ -1,5 +1,5 @@
 <?php
-$debugSuffix = (isset($_GET['debug']) && $_GET['debug'] === '1') ? '?debug=1' : '';
+require 'debug.php';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     if ($_POST['action'] === 'login') {
@@ -36,8 +36,11 @@ if ($sessionCookie === '1tW0rk5!4real') {
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>Search for Content</title>
   <link rel="stylesheet" href="pico.min.css"/>
-  <?php if (isset($_GET['debug']) && $_GET['debug'] === '1'): ?>
+  <?php if ($debugLevel >= 1): ?>
   <script src="codemirror-html-edit.js" defer></script>
+  <?php endif; ?>
+  <?php if ($debugLevel >= 2): ?>
+  <script src="codemirror-php-view.js" defer></script>
   <?php endif; ?>
  </head>
  <body>
@@ -52,11 +55,7 @@ if ($sessionCookie === '1tW0rk5!4real') {
       <nav>
        <ul></ul>
        <ul>
-        <li>
-         <label>
-          <input type="checkbox" role="switch"<?php echo isset($_GET['debug']) && $_GET['debug'] === '1' ? ' checked' : ''; ?> onchange="var p=new URLSearchParams(window.location.search);this.checked?p.set('debug','1'):p.delete('debug');var s=p.toString();window.location.replace(s?'?'+s:window.location.pathname)"/>
-         </label>
-        </li>
+        <li><?php debug_switch(); ?></li>
         <li><a href="fix.php<?php echo $debugSuffix; ?>" role="button">Fix</a></li>
         <li><a href="index.php<?php echo $debugSuffix; ?>" role="button" class="secondary">Home</a></li>
        </ul>
@@ -71,10 +70,10 @@ if ($sessionCookie === '1tW0rk5!4real') {
      </form>
     </div>
     <form action="search.php" method="GET">
-     <?php if (isset($_GET['debug']) && $_GET['debug'] === '1'): ?>
-     <input type="hidden" name="debug" value="1"/>
+     <?php if ($debugLevel > 0): ?>
+     <input type="hidden" name="debug" value="<?php echo $debugLevel; ?>"/>
      <?php endif; ?>
-     <?php if (isset($_GET['debug']) && $_GET['debug'] === '1'): ?>
+     <?php if ($debugLevel >= 1): ?>
      <textarea name="q" data-codemirror="html-edit" rows="4"><?php echo htmlspecialchars($_GET['q'] ?? ''); ?></textarea>
      <?php else: ?>
      <input type="text" name="q" placeholder="Search term" value="<?php echo htmlspecialchars($_GET['q'] ?? ''); ?>"/>
@@ -82,9 +81,19 @@ if ($sessionCookie === '1tW0rk5!4real') {
      <input type="submit" value="Search!"/>
     </form>
     <?php require 'critical.php'; ?>
-    <?php if (isset($_GET['debug']) && $_GET['debug'] === '1'): ?>
+    <?php if ($debugLevel >= 1): ?>
     <hr/>
-    <p><strong>Debug:</strong> session cookie = <code><?php echo $sessionCookie !== null ? htmlspecialchars($sessionCookie) : '(not set)'; ?></code></p>
+    <p><strong>Your session cookie:</strong> <code><?php echo $sessionCookie !== null ? htmlspecialchars($sessionCookie) : '(not set)'; ?></code>
+    — no <code>HttpOnly</code> flag, so <code>document.cookie</code> can read it too.</p>
+    <?php endif; ?>
+    <?php if ($debugLevel >= 2): ?>
+    <hr/>
+    <p><strong>What the server received.</strong> <code>$_GET["q"]</code> after
+    URL-decoding, exactly as PHP handed it to the code below:</p>
+    <pre><code><?php echo htmlspecialchars($_GET['q'] ?? '(not set)'); ?></code></pre>
+    <p><strong>The code that printed it.</strong> This is <code>critical.php</code>,
+    the snippet the Fix button edits:</p>
+    <textarea data-codemirror="php-view" hidden><?php echo htmlspecialchars(file_get_contents('critical.php')); ?></textarea>
     <?php endif; ?>
    </article>
   </main>

@@ -1,6 +1,7 @@
 # glassbox-php — the PHP challenge family.
 # Builds FROM the harness and adds everything PHP-specific: the CodeMirror editor
-# bundles (PHP/HTML/SQL modes) and PHP static analysis (Psalm + lint.php).
+# bundles (PHP/HTML/SQL modes, plus the level-1 SQL payload input) and PHP static
+# analysis (Psalm + lint.php).
 # Web challenges (SQLi, XSS) build FROM this image.
 ARG BASE_IMAGE=glassbox-harness
 
@@ -8,11 +9,12 @@ FROM node:alpine AS build
 WORKDIR /build
 COPY editor/package.json .
 RUN npm install
-COPY editor/cm-init.js editor/cm-php-view.js editor/cm-html-edit.js editor/cm-sql-edit.js editor/linters.js ./
+COPY editor/cm-init.js editor/cm-php-view.js editor/cm-html-edit.js editor/cm-sql-edit.js editor/cm-sql-input.js editor/linters.js editor/mysql-strings.js ./
 RUN ./node_modules/.bin/esbuild cm-init.js --bundle --format=iife --outfile=codemirror-bundle.js && \
     ./node_modules/.bin/esbuild cm-php-view.js --bundle --format=iife --outfile=codemirror-php-view.js && \
     ./node_modules/.bin/esbuild cm-html-edit.js --bundle --format=iife --outfile=codemirror-html-edit.js && \
-    ./node_modules/.bin/esbuild cm-sql-edit.js --bundle --format=iife --outfile=codemirror-sql-edit.js
+    ./node_modules/.bin/esbuild cm-sql-edit.js --bundle --format=iife --outfile=codemirror-sql-edit.js && \
+    ./node_modules/.bin/esbuild cm-sql-input.js --bundle --format=iife --outfile=codemirror-sql-input.js
 
 FROM ${BASE_IMAGE}
 
@@ -26,4 +28,5 @@ COPY --from=build /build/codemirror-bundle.js /var/www/html/codemirror-bundle.js
 COPY --from=build /build/codemirror-php-view.js /var/www/html/codemirror-php-view.js
 COPY --from=build /build/codemirror-html-edit.js /var/www/html/codemirror-html-edit.js
 COPY --from=build /build/codemirror-sql-edit.js /var/www/html/codemirror-sql-edit.js
+COPY --from=build /build/codemirror-sql-input.js /var/www/html/codemirror-sql-input.js
 COPY lint.php psalm.xml /var/www/html/

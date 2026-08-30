@@ -43,13 +43,20 @@ Then open <http://localhost:9000/> (the port is whatever you mapped with `-p`).
 - **Fix button** — opens the one vulnerable snippet (`critical.php`) in an
   in-browser editor. Patch it, **Save**, and the running page uses your version
   immediately. **Restore Original** puts the bug back.
-- **Debug switch** (the toggle in each page's header, or `?debug=1`) — turns the
-  search box into a multi-line editor so you can write a real script, shows you
-  the raw session cookie the server sees, and — in the chat — dumps the admin
-  bot's JavaScript console and the exact HTML page the admin's browser rendered.
-  This is the "glass box": watch your payload run inside the victim.
+- **Debug dial** (the selector in each page's header) — three settings:
+  - **Off** — the site as it ships.
+  - **Hints** (`?debug=1`) — the search box becomes a multi-line HTML editor so
+    you can write a real script; your own session cookie is shown (it has no
+    `HttpOnly` flag, so `document.cookie` can read it anyway); and in the chat,
+    the admin bot's **JavaScript console errors** come back. Those errors are the
+    heart of this rung: a payload that never runs in the victim's browser leaves
+    a `SyntaxError` behind, and now you can read it.
+  - **Debug** (`?debug=2`) — the exact HTML page the admin's browser rendered,
+    what the server received in `$_GET["q"]`, and the vulnerable snippet itself.
+    This is the victim's side of the wire; reach for it once your payload runs
+    but you cannot see why the result is wrong.
 
 ## Stuck?
 
 The full walkthrough — payloads, the flag, and the fix — is in
-[solution.md](solution.md). It contains spoilers; try the debug switch first.
+[solution.md](solution.md). It contains spoilers; turn the debug dial up first.

@@ -1,16 +1,30 @@
+// Level-1 editor for the fields a SQLi challenge is exploited through.
+//
+// Deliberately NOT sqlUnterminatedStringLinter: an unterminated string is what a
+// breakout payload produces, so flagging it would tell the learner they made a
+// mistake at the exact moment they succeeded. sqlBadCommentLinter stays, because
+// "-- " needing a trailing space is a real MySQL rule learners trip over.
 import { EditorView, basicSetup } from "codemirror";
-import { html } from "@codemirror/lang-html";
-import { treeLinter, htmlTagLinter, jsLinter, lintGutter } from "./linters.js";
+import { sql, MySQL } from "@codemirror/lang-sql";
+import { lintGutter, sqlBadCommentLinter } from "./linters.js";
+import { mysqlStringHighlighter } from "./mysql-strings.js";
 
 document.addEventListener("DOMContentLoaded", () => {
   const editors = [];
 
-  document.querySelectorAll('[data-codemirror="html-edit"]').forEach((textarea) => {
+  document.querySelectorAll('[data-codemirror="sql-input"]').forEach((textarea) => {
     textarea.hidden = true;
 
     const view = new EditorView({
       doc: textarea.value,
-      extensions: [basicSetup, html(), EditorView.lineWrapping, lintGutter(), treeLinter, htmlTagLinter, jsLinter],
+      extensions: [
+        basicSetup,
+        sql({ dialect: MySQL }),
+        EditorView.lineWrapping,
+        lintGutter(),
+        sqlBadCommentLinter,
+        mysqlStringHighlighter,
+      ],
     });
 
     const wrapper = document.createElement("div");
@@ -23,8 +37,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
   if (!editors.length) return;
 
-  // Capture phase: the page's own submit handlers read the textarea values, so
-  // they must already be up to date.
+  // Capture phase: the page's own submit handlers (the sessionStorage form
+  // restore) read the textarea values, so they must already be up to date.
   document.addEventListener("submit", (e) => {
     for (const { textarea, view } of editors) {
       if (textarea.form === e.target) textarea.value = view.state.doc.toString();

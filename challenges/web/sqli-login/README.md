@@ -35,11 +35,20 @@ Then open <http://localhost:9000/>.
 - **Fix button** — opens the one vulnerable snippet (`critical.php`) in an
   in-browser editor. Patch it, **Save**, and the running page uses your version
   immediately. **Restore Original** puts the bug back.
-- **Debug switch** (the toggle in the header, or `?debug=1`) — shows you the
-  *exact SQL string* the server built from your input and the *rows it returned*.
-  This is the "glass box": watch your injection reshape the query at the victim.
+- **Debug dial** (the selector in the header) — three settings:
+  - **Off** — the challenge as a real target would give it to you.
+  - **Hints** (`?debug=1`) — the username and password fields become MySQL
+    editors, with the quote boundaries coloured the way MySQL really parses them,
+    and the *database's own error message* replaces the polite "something went
+    wrong". Enough to see why a payload broke; not enough to hand you the answer.
+  - **Debug** (`?debug=2`) — the "glass box" proper: the *exact SQL string* the
+    server built from your input and the *rows it returned*. Watch your injection
+    reshape the query at the victim.
+
+  Try **Hints** first — reaching **Debug** before you have a theory just tells
+  you the answer.
 
 ## Stuck?
 
 The full walkthrough — payloads, flags, and the fix — is in
-[solution.md](solution.md). It contains spoilers; try the debug switch first.
+[solution.md](solution.md). It contains spoilers; turn the debug dial up first.

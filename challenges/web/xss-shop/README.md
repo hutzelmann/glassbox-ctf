@@ -40,12 +40,16 @@ Then open <http://localhost:9000/>.
 - **Fix button** — opens the one vulnerable snippet (`critical.php`) in an
   in-browser editor. Patch it, **Save**, and the running page uses your version
   immediately. **Restore Original** puts the bug back.
-- **Debug switch** (the toggle in the header, or `?debug=1`) — turns the
-  **Comment** box into a syntax-highlighting HTML editor. Watch the browser treat
-  your comment as *markup* rather than plain text — that is the "glass box": your
-  input becomes part of the page the shop trusts.
+- **Debug dial** (the selector in the header) — three settings:
+  - **Off** — a plain comment box.
+  - **Hints** (`?debug=1`) — the **Comment** box becomes a syntax-highlighting
+    HTML editor with live diagnostics. Watch the editor treat your comment as
+    *markup* rather than plain text — the same mistake the shop makes.
+  - **Debug** (`?debug=2`) — what the server received in `$_POST["comment"]`,
+    plus the vulnerable snippet that prints it into the packing slip. That shows
+    you the bug outright, so try the exploit first.
 
 ## Stuck?
 
 The full walkthrough — payloads, flags, and the fix — is in
-[solution.md](solution.md). It contains spoilers; try the debug switch first.
+[solution.md](solution.md). It contains spoilers; turn the debug dial up first.
