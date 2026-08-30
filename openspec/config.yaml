@@ -1,0 +1,41 @@
+schema: spec-driven
+
+context: |
+  glassbox-ctf: self-contained, Dockerized web-security teaching challenges
+  (SQL injection, XSS today; scope will grow to other domains, e.g. binary).
+  Educational / defensive: textbook OWASP-class bugs, fictional flags, fully
+  offline containers. No test suite; a challenge is exercised by building its
+  container and clicking through it in a browser. Local dev uses podman; CI uses
+  docker buildx and publishes to ghcr.io/<owner>/glassbox-ctf-<name>.
+
+  Two learner mechanisms drive the design:
+  - the critical.<ext> pattern: the single vulnerable snippet lives in
+    critical.php (snapshotted to critical.orig.php at build), require'd by a page;
+    an in-browser CodeMirror editor (fix.php) saves it back so the learner patches
+    the real running code.
+  - the ?debug=1 switch: sticky toggle exposing server internals (exact SQL,
+    returned rows, admin's rendered page, JS errors).
+
+  AGENTS.md is the single source of truth for repository conventions.
+
+# Per-artifact rules (optional)
+# Add custom rules for specific artifacts.
+# Example:
+#   rules:
+#     proposal:
+#       - Keep proposals under 500 words
+#       - Always include a "Non-goals" section
+#     tasks:
+#       - Break tasks into chunks of max 2 hours
+
+# Per-operation guidance (optional)
+# Add advisory guidance for how apply and archive work should be conducted.
+# This is separate from artifact rules above.
+# Example:
+#   operations:
+#     apply:
+#       guidance:
+#         - Keep test summaries concise
+#     archive:
+#       guidance:
+#         - Summarize the archive outcome before finishing

@@ -5,13 +5,64 @@ on:
     branches:
       - main
 
+# Pipeline shape:
+#   discover  -> scan challenges/**/Dockerfile, emit a JSON matrix (no hand-kept list)
+#   base      -> build the platform chain in dependency order: harness, then php
+#   challenges-> build every discovered challenge FROM its parsed family base
+env:
+  REGISTRY: ghcr.io
+
 jobs:
-  build-base:
-    name: Build base images
+  # ---------------------------------------------------------------------------
+  # Auto-discover challenges. Adding a challenge = adding its folder; no edit here.
+  # For each challenges/<domain>/<name>/Dockerfile we emit {name, path, base}:
+  #   - name: the folder basename -> published as glassbox-ctf-<name> (flat, path-independent)
+  #   - base: the CI override for the Dockerfile's `ARG BASE_IMAGE` default, mapped to its
+  #           GHCR family image (glassbox-php -> ghcr.io/<owner>/glassbox-ctf-php:latest).
+  #           Empty for standalone images (e.g. runtime-check FROM alpine).
+  # ---------------------------------------------------------------------------
+  discover:
+    name: Discover challenges
+    runs-on: ubuntu-latest
+    outputs:
+      challenges: ${{ steps.scan.outputs.challenges }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Scan for challenge Dockerfiles
+        id: scan
+        run: |
+          owner="${{ github.repository_owner }}"
+          repo="${{ github.event.repository.name }}"
+          items=()
+          for df in challenges/*/*/Dockerfile; do
+            [ -f "$df" ] || continue
+            dir="$(dirname "$df")"
+            name="$(basename "$dir")"
+            # The default of `ARG BASE_IMAGE=<local-name>`, if any (e.g. glassbox-php).
+            base_local="$(grep -oP '^ARG[[:space:]]+BASE_IMAGE=\K[^[:space:]]+' "$df" | head -n1 || true)"
+            if [[ "$base_local" == glassbox-* ]]; then
+              family="${base_local#glassbox-}"                        # php, native, ...
+              base="${REGISTRY}/${owner}/${repo}-${family}:latest"
+            else
+              base=""                                                 # standalone (no glassbox base)
+            fi
+            items+=("{\"name\":\"${name}\",\"path\":\"${dir}\",\"base\":\"${base}\"}")
+          done
+          json="[$(IFS=,; echo "${items[*]}")]"
+          echo "Discovered: $json"
+          echo "challenges=${json}" >> "$GITHUB_OUTPUT"
+
+  # ---------------------------------------------------------------------------
+  # Platform base chain. harness first, then families FROM harness.
+  # A new family (e.g. native) is added here as a sibling step that `needs` harness.
+  # ---------------------------------------------------------------------------
+  base:
+    name: Build base chain
     runs-on: ubuntu-latest
     permissions:
       packages: write
-
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -21,35 +72,37 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and push base
+      - name: Build and push harness
         uses: docker/build-push-action@v7
         with:
-          context: ./base
+          context: ./platform/harness
           push: true
           platforms: linux/amd64,linux/arm64
-          tags: ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}-base:latest
+          tags: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ github.event.repository.name }}-harness:latest
 
-  build:
-    name: Build ${{ matrix.image }}
+      - name: Build and push php family
+        uses: docker/build-push-action@v7
+        with:
+          context: ./platform/php
+          push: true
+          platforms: linux/amd64,linux/arm64
+          tags: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ github.event.repository.name }}-php:latest
+          build-args: |
+            BASE_IMAGE=${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ github.event.repository.name }}-harness:latest
+
+  # ---------------------------------------------------------------------------
+  # Build every discovered challenge, FROM its parsed family base (or standalone).
+  # ---------------------------------------------------------------------------
+  challenges:
+    name: Build ${{ matrix.item.name }}
     runs-on: ubuntu-latest
-    needs: build-base
+    needs: [discover, base]
     permissions:
       packages: write
-
     strategy:
       fail-fast: false
       matrix:
-        image:
-          - hello
-          - debug
-          - sqli-login
-          - sqli-blind
-          - sqli-insert
-          - xss-light
-          - xss-cookie
-          - xss-chat
-          - xss-shop
-
+        item: ${{ fromJSON(needs.discover.outputs.challenges) }}
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -59,12 +112,11 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and push ${{ matrix.image }}
+      - name: Build and push ${{ matrix.item.name }}
         uses: docker/build-push-action@v7
         with:
-          context: ./${{ matrix.image }}
+          context: ./${{ matrix.item.path }}
           push: true
           platforms: linux/amd64,linux/arm64
-          tags: ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}-${{ matrix.image }}:latest
-          build-args: |
-            BASE_IMAGE=ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}-base:latest
+          tags: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ github.event.repository.name }}-${{ matrix.item.name }}:latest
+          build-args: ${{ matrix.item.base != '' && format('BASE_IMAGE={0}', matrix.item.base) || '' }}

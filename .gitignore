@@ -1,1 +1,7 @@
+# Fetched or built at image-build time — never committed (see AGENTS.md).
 pico.min.css
+node_modules/
+codemirror-bundle.js
+codemirror-php-view.js
+codemirror-html-edit.js
+codemirror-sql-edit.js

@@ -1,0 +1,28 @@
+<?xml version="1.0"?>
+<psalm
+    errorLevel="4"
+    resolveFromConfigFile="true"
+    findUnusedVariablesAndParams="false"
+    cacheDirectory="/var/cache/psalm"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns="https://getpsalm.org/schema/config"
+    xsi:schemaLocation="https://getpsalm.org/schema/config vendor/vimeo/psalm/config.xsd"
+>
+    <projectFiles>
+        <directory name="/tmp"/>
+    </projectFiles>
+    <issueHandlers>
+        <!--
+            UndefinedVariable and UndefinedGlobalVariable are "always errors" in Psalm
+            and cannot be suppressed via errorLevel. Suppress them here because
+            critical.php snippets reference variables injected by index.php at
+            include-time ($db, $user, $username, $password, etc.) that Psalm cannot see.
+        -->
+        <UndefinedVariable>
+            <errorLevel type="suppress"><directory name="/tmp"/></errorLevel>
+        </UndefinedVariable>
+        <UndefinedGlobalVariable>
+            <errorLevel type="suppress"><directory name="/tmp"/></errorLevel>
+        </UndefinedGlobalVariable>
+    </issueHandlers>
+</psalm>
