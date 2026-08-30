@@ -7,9 +7,9 @@ what happened inside. `glassbox-ctf` is the opposite. Every challenge is a small
 deliberately vulnerable app or program that lets you *see its internals as you
 attack it*, the exact SQL your injection built and the rows it returned, the page
 the victim's browser actually rendered, the stack frame your overflow walks over
-and the CPU registers at the moment it crashes, and then hands you an in-browser
-editor to fix the one vulnerable line and prove your patch works. Attack,
-understand, remediate, all in the same tab.
+and the exact bytes of yours that landed on the saved return address, and then
+hands you an in-browser editor to fix the one vulnerable line and prove your
+patch works. Attack, understand, remediate, all in the same tab.
 
 It is built for classrooms and self-study: textbook, well-understood
 vulnerabilities across web (SQL injection, XSS) and binary exploitation
@@ -118,11 +118,10 @@ building on the last.
 > arm64 hosts (e.g. Apple Silicon) the same command runs them under emulation. In
 > these, **Fix** recompiles the binary on Save and you can also edit the compiler
 > flags to toggle protections (stack canary, PIE, NX) and watch which exploit each
-> one kills; add `--cap-add=SYS_PTRACE` for the live register readout in the debug
-> view:
+> one kills:
 
 ```bash
-podman run --rm -p 9000:80 --cap-add=SYS_PTRACE ghcr.io/hutzelmann/glassbox-ctf-ret2win
+podman run --rm -p 9000:80 ghcr.io/hutzelmann/glassbox-ctf-ret2win
 ```
 
 More domains are on the way.

@@ -5,6 +5,7 @@ codemirror-bundle.js
 codemirror-php-view.js
 codemirror-html-edit.js
 codemirror-sql-edit.js
+codemirror-sql-input.js
 
 # Native (C) family editor bundle — esbuilt at image build.
 codemirror-c-view.js

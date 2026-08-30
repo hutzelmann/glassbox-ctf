@@ -3,8 +3,9 @@
  * native-run.php, shared helpers for the native binary family.
  *
  * A challenge's index.php includes this and calls into it: decode a payload, run
- * the vulnerable binary on it under a sandbox, capture the crash registers for
- * debug, and render the disassembly / symbols / checksec / hexdump / stack table.
+ * the vulnerable binary on it under a sandbox, report the exit status and the
+ * fatal signal, and render the disassembly / symbols / checksec / hexdump / stack
+ * table.
  * Nothing here echoes on include; every function returns data or an HTML string.
  */
 
