@@ -25,10 +25,47 @@ function debug_switch(): void
     global $debugLevel;
     $levels = [0 => 'Challenge', 1 => 'Hints', 2 => 'Debug'];
     ?>
-<select aria-label="Debug level" style="width:auto;margin:calc(var(--pico-nav-link-spacing-vertical) * -1) 0 0" onchange="var p=new URLSearchParams(window.location.search);this.value==='0'?p.delete('debug'):p.set('debug',this.value);var s=p.toString();window.location.replace(s?'?'+s:window.location.pathname)">
+<select id="gb-debug-dial" aria-label="Debug level" style="width:auto;margin:calc(var(--pico-nav-link-spacing-vertical) * -1) 0 0">
 <?php foreach ($levels as $value => $label): ?>
  <option value="<?php echo $value; ?>"<?php echo $value === $debugLevel ? ' selected' : ''; ?>><?php echo $label; ?></option>
 <?php endforeach; ?>
 </select>
+<script>
+(function () {
+  var d = document.getElementById('gb-debug-dial');
+  if (!d) return;
+  // A form counts as "submitted" (re-runnable) when it carries a filled data input.
+  function filled(form) {
+    var els = form.querySelectorAll('input, textarea');
+    for (var i = 0; i < els.length; i++) {
+      var t = (els[i].type || 'text').toLowerCase();
+      if (t === 'submit' || t === 'button' || t === 'hidden' || t === 'file' ||
+          t === 'checkbox' || t === 'radio') continue;
+      if ((els[i].value || '').trim() !== '') return true;
+    }
+    return false;
+  }
+  d.addEventListener('change', function () {
+    var v = this.value;
+    // Default: re-run the last submission so the learner's result survives the level
+    // change in one click. Re-POST the first POST form that has input and has not opted
+    // out; a form whose submit is not safe to replay marks itself data-debug-no-resubmit.
+    var forms = document.querySelectorAll('form[method="post" i]');
+    for (var i = 0; i < forms.length; i++) {
+      var f = forms[i];
+      if (f.hasAttribute('data-debug-no-resubmit') || !filled(f)) continue;
+      f.action = v === '0' ? './' : './?debug=' + v;
+      f.submit();
+      return;
+    }
+    // Nothing to re-run: change the level in place, preserving other query params so a
+    // GET form's submission is kept.
+    var p = new URLSearchParams(window.location.search);
+    v === '0' ? p.delete('debug') : p.set('debug', v);
+    var s = p.toString();
+    window.location.replace(s ? '?' + s : window.location.pathname);
+  });
+})();
+</script>
 <?php
 }

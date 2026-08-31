@@ -11,9 +11,25 @@
 # so the previous working build keeps running and the container never bricks.
 set -u
 
-out="${1:?usage: nbuild <out> <src> [flagsfile]}"
-src="${2:?usage: nbuild <out> <src> [flagsfile]}"
-flagsfile="${3:-build.flags}"
+out="${1:?usage: nbuild <out> <src> [flagsfile] [-- <fixed author flags>]}"
+src="${2:?usage: nbuild <out> <src> [flagsfile] [-- <fixed author flags>]}"
+shift 2
+
+# Optional flags file (learner-editable, allowlisted); defaults to build.flags.
+# Everything after a literal `--` is author-fixed: trusted flags the challenge
+# pins on every build (e.g. -static), NOT filtered through the allowlist and NOT
+# exposed in the learner's flags field. The author is trusted; only the flags
+# file is untrusted input, so only it is filtered.
+flagsfile="build.flags"
+if [ "${1:-}" != "--" ] && [ -n "${1:-}" ]; then
+  flagsfile="$1"
+  shift
+fi
+author=()
+if [ "${1:-}" = "--" ]; then
+  shift
+  author=("$@")
+fi
 
 # No lock needed: each build compiles to its own mktemp file and swaps in with an
 # atomic rename, so concurrent rebuilds are last-writer-wins with no half-written
@@ -37,7 +53,7 @@ fi
 [ ${#dropped[@]} -gt 0 ] && echo "note: ignored non-allowlisted flags: ${dropped[*]}" >&2
 
 tmp="$(mktemp "./${out}.XXXXXX")"
-if gcc ${allowed[@]+"${allowed[@]}"} -o "$tmp" "$src" 2>&1; then
+if gcc ${allowed[@]+"${allowed[@]}"} ${author[@]+"${author[@]}"} -o "$tmp" "$src" 2>&1; then
   chmod +x "$tmp"
   mv -f "$tmp" "./$out"
   exit 0

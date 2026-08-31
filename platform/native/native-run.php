@@ -32,11 +32,14 @@ function nrun_hex(string $bytes): string {
 // ulimits via a bash wrapper), and capture stdout/stderr/exit. The wrapper's exec
 // replaces bash with the target, so the target still inherits our stdin pipe,
 // which matters for ret2libc, where bytes past the vulnerable read feed the shell.
-function nrun_run(string $bin, string $payload, int $timeout = 3): array {
+function nrun_run(string $bin, string $payload, int $timeout = 3, ?string $cwd = null): array {
     $script = 'ulimit -t ' . $timeout . ' -v 262144 -f 4096 2>/dev/null; exec "$@"';
     $cmd = ['timeout', '--signal=KILL', (string) $timeout, 'bash', '-c', $script, 'bash', $bin];
     $spec = [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']];
-    $proc = @proc_open($cmd, $spec, $pipes);
+    // $cwd is the working directory of the spawned process (null = inherit ours);
+    // a ret2libc rung sets it so a spawned shell's `cat flag.txt` resolves to a
+    // flag kept outside the web root. Absolute $bin means cwd never hides it.
+    $proc = @proc_open($cmd, $spec, $pipes, $cwd);
     if (!is_resource($proc)) {
         return ['stdout' => '', 'stderr' => 'failed to start', 'exit' => -1, 'crashed' => false, 'timedout' => false];
     }
@@ -47,6 +50,13 @@ function nrun_run(string $bin, string $payload, int $timeout = 3): array {
     fclose($pipes[1]);
     fclose($pipes[2]);
     $exit = proc_close($proc);
+
+    // Drop `timeout`'s own meta-lines (e.g. "the monitored command dumped core",
+    // which it prints whenever the inferior is killed by a core-dumping signal — a
+    // normal ret2libc segfault after the spawned shell exits). They are wrapper
+    // noise, not the binary's stderr, and the crash/timeout outcome is reported from
+    // the exit status below, so showing them would make even a winning run look failed.
+    $stderr = preg_replace('/^timeout: .*\R?/m', '', $stderr);
 
     // The timeout/bash wrapper may surface a fatal signal as either 128+sig or the
     // raw sig; a wall-clock timeout comes back as 124 (GNU timeout) or SIGKILL.
@@ -148,6 +158,38 @@ function nrun_string_addr(string $bin, string $needle): ?string {
     return null;
 }
 
+// Virtual address of a ROP gadget, located by its raw bytes inside an executable
+// section (default "\x5f\xc3" = `pop rdi; ret`). Because each byte is a complete
+// one-byte instruction, any occurrence in executable memory is a usable gadget
+// when entered at its first byte; a bare `ret` is the returned address + 1.
+// Scans executable (CODE) sections only, so a matching byte pair in rodata/data is
+// never mistaken for a gadget. Null if the sequence is not present in code.
+function nrun_gadget_addr(string $bin, string $needle = "\x5f\xc3"): ?string {
+    $data = @file_get_contents($bin);
+    if ($data === false) {
+        return null;
+    }
+    $out = (string) @shell_exec('objdump -h ' . escapeshellarg($bin) . ' 2>/dev/null');
+    $lines = explode("\n", $out);
+    for ($i = 0; $i < count($lines); $i++) {
+        // Section header line: "<idx> <name> <size> <vma> <lma> <fileoff> <algn>",
+        // with the section's flags (incl. CODE for executable) on the next line.
+        if (preg_match('/^\s*\d+\s+\S+\s+([0-9a-f]+)\s+([0-9a-f]+)\s+[0-9a-f]+\s+([0-9a-f]+)\s+/', $lines[$i], $m)) {
+            if (strpos($lines[$i + 1] ?? '', 'CODE') === false) {
+                continue;
+            }
+            $size = hexdec($m[1]);
+            $vma  = hexdec($m[2]);
+            $foff = hexdec($m[3]);
+            $pos  = strpos(substr($data, $foff, $size), $needle);
+            if ($pos !== false) {
+                return '0x' . dechex($vma + $pos);
+            }
+        }
+    }
+    return null;
+}
+
 // A checksec-style protections report, computed from readelf/nm so the image needs
 // no external checksec script and stays fully offline.
 function nrun_checksec(string $bin): array {
@@ -167,8 +209,19 @@ function nrun_checksec(string $bin): array {
         $nx = (strpos($m[1], 'E') === false);
     }
 
-    $canary = (strpos($syms, '__stack_chk_fail') !== false)
-           || (strpos($dynsyms, '__stack_chk_fail') !== false);
+    // Canary: a statically linked libc always carries __stack_chk_fail (glibc itself
+    // is built with the protector), so the mere presence of that symbol is not a
+    // reliable signal for a static binary. Detect instead whether the challenge's own
+    // functions are instrumented, by the canary load (fs:0x28) in main/vuln; fall back
+    // to the symbol only when neither can be disassembled. This reads the same for a
+    // dynamic binary (ret2win), so the stack-protector lesson is unaffected there.
+    $ownCode = nrun_disasm($bin, ['main', 'vuln']);
+    if ($ownCode !== '') {
+        $canary = (strpos($ownCode, 'fs:0x28') !== false);
+    } else {
+        $canary = (strpos($syms, '__stack_chk_fail') !== false)
+               || (strpos($dynsyms, '__stack_chk_fail') !== false);
+    }
 
     $relroPartial = (strpos($prog, 'GNU_RELRO') !== false);
     $bindNow = (bool) preg_match('/\bBIND_NOW\b/', $dyn) || (bool) preg_match('/FLAGS_1.*\bNOW\b/', $dyn);
@@ -375,6 +428,19 @@ function nrun_stack_table(string $bin, string $payload, int $bufSize, array $opt
     $origRet   = $opts['origRet'] ?? null;
     $hasCanary = !empty($opts['hasCanary']);
     $canaryVal = $opts['canaryVal'] ?? null;
+    // Optional chain-inspection extras (see ret2libc). readLimit marks bytes past the
+    // vulnerable read as shell stdin rather than stack; annotations names a slot's
+    // role by its value, consulted before the generic return-target resolver so an
+    // argument slot (e.g. a "/bin/sh" pointer) is not mislabelled as a return target.
+    $readLimit = $opts['readLimit'] ?? null;
+    $annoMap   = [];
+    foreach (($opts['annotations'] ?? []) as $k => $v) {
+        $annoMap['0x' . (ltrim(strtolower(preg_replace('/^0x/', '', (string) $k)), '0') ?: '0')] = $v;
+    }
+    $resolveRole = function (string $valHex) use ($annoMap, $bin): string {
+        $nk = '0x' . (ltrim(strtolower(preg_replace('/^0x/', '', $valHex)), '0') ?: '0');
+        return $annoMap[$nk] ?? nrun_resolve_addr($bin, $valHex);
+    };
 
     $len = strlen($payload);
     $rbpOff = $bufSize + ($hasCanary ? 8 : 0);   // canary sits between buf and saved RBP
@@ -395,6 +461,9 @@ function nrun_stack_table(string $bin, string $payload, int $bufSize, array $opt
             $slot = 'rbp';
         } elseif ($off < $retOff + 8) {
             $slot = 'ret';
+        }
+        if ($slot === 'above' && $readLimit !== null && $off >= $readLimit) {
+            $slot = 'stdin';   // past the vulnerable read: feeds the shell, not the stack
         }
 
         $covered = $off < $len;
@@ -462,7 +531,7 @@ function nrun_stack_table(string $bin, string $payload, int $bufSize, array $opt
 
         if ($slot === 'ret') {
             if ($covered && $full) {
-                $note = 'saved return address<br/>the CPU returns to <strong>' . htmlspecialchars($val) . '</strong>: ' . nrun_resolve_addr($bin, $val);
+                $note = 'saved return address<br/>the CPU returns to <strong>' . htmlspecialchars($val) . '</strong>: ' . $resolveRole($val);
             } elseif ($covered) {
                 $note = 'saved return address, partly overwritten';
             } elseif ($origSlot) {
@@ -482,6 +551,11 @@ function nrun_stack_table(string $bin, string $payload, int $bufSize, array $opt
             $note = $covered ? 'saved RBP (frame pointer), overwritten' : 'saved RBP (frame pointer), not reached';
         } elseif ($slot === 'buf') {
             $note = "buf[$bufSize], the vulnerable buffer";
+        } elseif ($slot === 'stdin') {
+            $note = 'fed to the spawned shell (stdin), past the ' . (int) $readLimit
+                  . '-byte read, not on the stack';
+        } elseif ($slot === 'above' && $covered && $known) {
+            $note = 'chain link<br/>' . htmlspecialchars($val) . ': ' . $resolveRole($val);
         } else {
             $note = 'stack above the frame';
         }
@@ -495,8 +569,8 @@ function nrun_stack_table(string $bin, string $payload, int $bufSize, array $opt
 
         $rows .= '<tr>'
             . '<td><code>+' . $off . '</code></td>'
-            . '<td><code>' . $bytesCell . '</code></td>'
-            . '<td><code>' . $valCell . '</code></td>'
+            . '<td style="white-space:nowrap"><code>' . $bytesCell . '</code></td>'
+            . '<td style="white-space:nowrap"><code>' . $valCell . '</code></td>'
             . '<td><code>' . htmlspecialchars($ascii) . '</code></td>'
             . '<td>' . $note . '</td>'
             . '</tr>';
@@ -626,7 +700,9 @@ function nrun_vuln_bp_addrs(string $bin): ?array {
         if (preg_match('/\bmov\s+e?dx,0x([0-9a-f]+)/', $insn, $mm)) {
             $readCap = hexdec($mm[1]);
         }
-        if (preg_match('/\bcall\s+[0-9a-f]+\s+<read(@plt)?>/', $insn)) {
+        // The read() call: `<read@plt>` in a dynamic binary, but a static libc
+        // links it under an alias (`<__libc_read>` / `<__read>`), so accept those.
+        if (preg_match('/\bcall\s+[0-9a-f]+\s+<(?:__libc_|__)?read(@plt)?>/', $insn)) {
             $callIdx = $idx;
         }
     }
@@ -748,9 +824,20 @@ function nrun_word_le(string $window, int $off): string {
 // reads by comparing the two columns. Every value is real memory (no placeholders);
 // the saved-return-address (and canary) rows spell out the consequence. $cap comes
 // from nrun_gdb_frame().
-function nrun_stack_table_live(string $bin, int $bufSize, array $cap): string {
+function nrun_stack_table_live(string $bin, int $bufSize, array $cap, array $opts = []): string {
     $rbpToBuf  = $cap['rbpToBuf'];
     $hasCanary = $cap['hasCanary'];
+    // Optional chain-link roles (see ret2libc), keyed by address, consulted before the
+    // generic resolver so a link past the frame is named (gadget / argument / call
+    // target) instead of just "above the frame".
+    $annoMap = [];
+    foreach (($opts['annotations'] ?? []) as $k => $v) {
+        $annoMap['0x' . (ltrim(strtolower(preg_replace('/^0x/', '', (string) $k)), '0') ?: '0')] = $v;
+    }
+    $resolveRole = function (string $valHex) use ($annoMap, $bin): string {
+        $nk = '0x' . (ltrim(strtolower(preg_replace('/^0x/', '', $valHex)), '0') ?: '0');
+        return $annoMap[$nk] ?? nrun_resolve_addr($bin, $valHex);
+    };
     $bw = $cap['before']['window'];
     $aw = $cap['after']['window'];
     $total = $cap['windowLen'];
@@ -795,7 +882,7 @@ function nrun_stack_table_live(string $bin, int $bufSize, array $cap): string {
             if ($changed) {
                 $note = 'the CPU returns here. was <code>' . htmlspecialchars($bVal) . '</code> ('
                     . nrun_resolve_addr($bin, $bVal) . '), now <strong>' . htmlspecialchars($aVal) . '</strong>: '
-                    . nrun_resolve_addr($bin, $aVal);
+                    . $resolveRole($aVal);
             } else {
                 $note = 'the CPU returns here, unchanged: ' . nrun_resolve_addr($bin, $bVal);
             }
@@ -819,7 +906,14 @@ function nrun_stack_table_live(string $bin, int $bufSize, array $cap): string {
         } elseif ($off < $rbpToBuf) {
             $note = 'compiler-inserted alignment / locals';
         } else {
-            $note = $changed ? 'your bytes ran past the frame (e.g. a ROP chain)' : 'stack above the frame';
+            $nk = '0x' . (ltrim(strtolower(preg_replace('/^0x/', '', $aVal)), '0') ?: '0');
+            if ($changed && isset($annoMap[$nk])) {
+                $note = 'chain link: <code>' . htmlspecialchars($aVal) . '</code> &rarr; ' . $annoMap[$nk];
+            } elseif ($changed) {
+                $note = 'your bytes ran past the frame (e.g. a ROP chain)';
+            } else {
+                $note = 'stack above the frame';
+            }
         }
 
         // Bytes never wrap (a broken mid-word wrap looks wrong). No highlight: the

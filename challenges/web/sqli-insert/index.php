@@ -163,7 +163,7 @@ if ($debugLevel >= 2 && empty($debugAllUsers)) {
      </article>
      <article>
       <header><strong>Register</strong></header>
-      <form action="./<?php echo $debugSuffix; ?>" method="POST">
+      <form action="./<?php echo $debugSuffix; ?>" method="POST" data-debug-no-resubmit>
        <?php if ($debugLevel >= 1): ?>
        <label>Username<textarea name="reg_username" data-codemirror="sql-input" rows="1" placeholder="Username"></textarea></label>
        <?php else: ?>

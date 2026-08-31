@@ -19,7 +19,7 @@ pops the next address off your chain, so you can set up a register and then call
 a function. Your goal is to make the program call `system("/bin/sh")`, using three
 things already inside the binary:
 
-- the `system@plt` stub (the program imports `system`),
+- the `system` function (statically linked in from libc),
 - a `"/bin/sh"` string,
 - a `pop rdi; ret` gadget (to put the string's address into RDI, `system`'s first
   argument).
@@ -32,12 +32,12 @@ just spawned to execute.
 
 - **a)** Confirm you still control the return address (as in ret2win), and note
   what's different: no `win()`, and `checksec` shows **NX enabled**.
-- **b)** Locate the three ingredients, `system@plt`, the `"/bin/sh"` string, and a
-  `pop rdi; ret` gadget (find them with Ghidra, `ROPgadget`, and `objdump`).
+- **b)** Locate the three ingredients, `system`, the `"/bin/sh"` string, and a
+  `pop rdi; ret` gadget (find them with Ghidra, `ROPgadget`, and `objdump`/`nm`).
 - **c)** Build a ROP chain that calls `system("/bin/sh")`. Mind the **16-byte stack
   alignment** `system` expects, you may need a bare `ret` first.
-- **d)** Get a shell and read the flag. Append a command (e.g. `cat /flag`) *after*
-  your chain, the leftover bytes feed the shell.
+- **d)** Get a shell and read the flag. Append a command (e.g. `cat flag.txt`)
+  *after* your chain, the leftover bytes feed the shell.
 - **e)** Fix `critical.c` so the overflow can't reach the return address, then
   confirm the chain fails.
 - **f)** Explain why **NX did not stop this**, what protections would (stack canary,
@@ -62,9 +62,11 @@ Then open <http://localhost:9000/>. As with ret2win the binary is x86-64
   protections, try turning NX *off* (`-Wl,-z,execstack`) and see `checksec` change,
   or add a canary and watch the chain get caught.
 - **Debug dial** (optional, never required to solve), in two settings:
-  - **Hints** (`?debug=1`) gives you a byte/endianness calculator and a live stack
-    table of your chain laid onto the frame, your own bytes, so you get the
-    **offset** and alignment from what you sent.
+  - **Hints** (`?debug=1`) gives you a byte/endianness calculator, a live stack
+    table of your chain laid onto the frame, your own bytes (with the 64-byte read
+    boundary marked, so you see which bytes feed the spawned shell), and a **Chain**
+    tab that reads your submitted chain back link by link, resolving each to its role
+    and telling you whether it reaches `system` with the required 16-byte alignment.
   - **Debug** (`?debug=2`) adds the **ROP ingredients** panel (the `system`,
     `/bin/sh`, and gadget addresses your chain is built from), the disassembly,
     `checksec`, and the memory map, the pieces a real attacker recovers with

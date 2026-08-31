@@ -15,16 +15,49 @@ $payload = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && $payloadHex !== '') {
     $payload = nrun_decode_hex($payloadHex);
-    $run = nrun_run($BIN, $payload);
+    // Run with the binary's working directory at the private flag dir so a spawned
+    // shell's `cat flag.txt` resolves there; the flag lives outside the web root.
+    $run = nrun_run($BIN, $payload, 3, '/var/challenge');
     $ran = true;
     // Success = a shell command the learner appended actually ran and printed the
-    // flag. /flag is never read by the challenge itself, only code execution reveals it.
-    $flagContent = trim((string) @file_get_contents('/flag'));
+    // flag. flag.txt is never read by the challenge itself and is not served by the
+    // web layer, only code execution reveals it.
+    $flagContent = trim((string) @file_get_contents('/var/challenge/flag.txt'));
     $won = ($flagContent !== '' && strpos($run['stdout'], $flagContent) !== false);
 }
-$sysAddr   = nrun_plt_addr($BIN, 'system');
+$sysAddr   = nrun_symbol_addr($BIN, 'system');
 $binshAddr = nrun_string_addr($BIN, '/bin/sh');
-$popAddr   = nrun_symbol_addr($BIN, 'pop_rdi_ret');
+$popAddr   = nrun_gadget_addr($BIN);
+$bareRet   = $popAddr !== null ? '0x' . dechex(hexdec($popAddr) + 1) : null;
+
+// Roles of the known ROP ingredients, keyed by address. The stack view and the Chain
+// tab use these to label each link the learner actually sent (so an argument slot is
+// named as an argument, not mislabelled as a return target). They only ever annotate
+// a value the learner already submitted, so they reveal no new target address.
+$chainRoles = [];
+if ($bareRet   !== null) { $chainRoles[$bareRet]   = 'a bare <code>ret</code> (stack alignment)'; }
+if ($popAddr   !== null) { $chainRoles[$popAddr]   = 'a <code>pop rdi; ret</code> gadget (loads the next word into RDI)'; }
+if ($binshAddr !== null) { $chainRoles[$binshAddr] = 'the <code>"/bin/sh"</code> string address, popped into RDI as <code>system</code>&#39;s argument'; }
+if ($sysAddr   !== null) { $chainRoles[$sysAddr]   = 'the <code>system()</code> call target'; }
+
+// Stack geometry + alignment verdict for the submitted chain. glibc's system faults
+// on a movaps unless the stack is 16-byte aligned at the call; with this frame that
+// holds exactly when (system_slot_offset - retOff) % 16 == 8 (retOff is the saved
+// return address; +8 for a canary when present).
+$READ_LIMIT = 64;   // vuln reads sizeof(struct msg) = 64 bytes onto the stack
+$hasCanary  = (nrun_checksec($BIN)['Canary'] ?? 'No') === 'Yes';
+$retOff     = $BUFSIZE + ($hasCanary ? 8 : 0) + 8;
+$sysOff     = null;
+$aligned    = null;
+if ($sysAddr !== null && $payload !== '') {
+    $needle = pack('P', hexdec(preg_replace('/^0x/', '', $sysAddr)));
+    for ($o = 0; $o + 8 <= min(strlen($payload), $READ_LIMIT); $o += 8) {
+        if (substr($payload, $o, 8) === $needle) { $sysOff = $o; break; }
+    }
+    if ($sysOff !== null) {
+        $aligned = (((($sysOff - $retOff) % 16) + 16) % 16) === 8;
+    }
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -42,7 +75,7 @@ $popAddr   = nrun_symbol_addr($BIN, 'pop_rdi_ret');
      <div class="grid" style="grid-template-columns:1fr auto">
       <hgroup>
        <h1>ret2libc</h1>
-       <p>No <code>win()</code> this time. Chain gadgets to call <code>system("/bin/sh")</code>.</p>
+       <p>No <code>win()</code> this time — reuse what's already in the binary.</p>
       </hgroup>
       <nav>
        <ul></ul>
@@ -55,10 +88,8 @@ $popAddr   = nrun_symbol_addr($BIN, 'pop_rdi_ret');
     </header>
 
     <p>Same overflow as <a href="../ret2win/">ret2win</a>, but there is no
-       <code>win()</code>, and NX (a non-executable stack) means injected shellcode
-       won't run. Reuse code already in the binary to spawn a shell and read
-       <code>/flag</code>. <a href="ret2libc" download>Download the binary</a> and
-       analyse it.</p>
+       <code>win()</code> and the stack is non-executable.
+       <a href="ret2libc" download>Download the binary</a> and analyse it.</p>
 
     <form method="POST" action="./<?php echo $debugSuffix; ?>">
      <label>Payload (text and <code>\xNN</code> escapes)
@@ -117,6 +148,7 @@ $popAddr   = nrun_symbol_addr($BIN, 'pop_rdi_ret');
     $dbgTabs = ['stack' => 'Your bytes'];
     if ($debugLevel >= 1) {
         $dbgTabs += [
+            'chain'    => 'Chain',
             'checksec' => 'checksec',
             'disasm'   => 'Disassembly',
         ];
@@ -148,15 +180,17 @@ $popAddr   = nrun_symbol_addr($BIN, 'pop_rdi_ret');
         <strong>after</strong> it (your chain over them). Compare the two columns to see
         which slots your chain overwrote; your gadget addresses land in and above the
         saved return address.</small></p>
-     <?php echo nrun_stack_table_live($BIN, $BUFSIZE, $live); ?>
+     <?php echo nrun_stack_table_live($BIN, $BUFSIZE, $live, ['annotations' => $chainRoles]); ?>
      <?php else: ?>
      <?php if ($debugLevel >= 2): ?>
      <p><small>Live capture is unavailable in this environment; showing the payload-derived
         model instead (the challenge is unaffected).</small></p>
      <?php endif; ?>
-     <?php echo nrun_stack_table($BIN, substr($payload, 0, 64), $BUFSIZE, [
-        'origRet'   => nrun_return_addr($BIN),
-        'hasCanary' => (nrun_checksec($BIN)['Canary'] ?? 'No') === 'Yes',
+     <?php echo nrun_stack_table($BIN, $payload, $BUFSIZE, [
+        'origRet'     => nrun_return_addr($BIN),
+        'hasCanary'   => $hasCanary,
+        'readLimit'   => $READ_LIMIT,
+        'annotations' => $chainRoles,
      ]); ?>
      <?php endif; ?>
      <?php else: ?>
@@ -171,11 +205,65 @@ $popAddr   = nrun_symbol_addr($BIN, 'pop_rdi_ret');
      <?php endif; ?>
     </section>
 
+    <section data-panel="chain" hidden>
+     <?php if ($ran): ?>
+     <?php
+       // Interpret the words from the saved return address up to the read boundary as
+       // a ROP chain. Only values the learner submitted are labelled, so no new target
+       // address is disclosed here.
+       $chainRows = '';
+       for ($o = $retOff; $o + 8 <= min(strlen($payload), $READ_LIMIT); $o += 8) {
+           $w = substr($payload, $o, 8);
+           $vhex = '0x';
+           for ($j = 7; $j >= 0; $j--) { $vhex .= sprintf('%02x', ord($w[$j])); }
+           $nk = '0x' . (ltrim(strtolower(substr($vhex, 2)), '0') ?: '0');
+           $role = $chainRoles[$nk] ?? htmlspecialchars(nrun_resolve_addr($BIN, $vhex));
+           $where = $o === $retOff ? ' (the CPU jumps here first)' : '';
+           $chainRows .= '<tr><td><code>+' . $o . '</code></td><td><code>'
+               . htmlspecialchars($vhex) . '</code></td><td>' . $role . $where . '</td></tr>';
+       }
+     ?>
+     <?php if ($chainRows !== ''): ?>
+     <p><small>Your submitted chain, read from the saved return address
+        (<code>+<?php echo $retOff; ?></code>) up to the <?php echo $READ_LIMIT; ?>-byte
+        read boundary. Each link ends in <code>ret</code>, which pops the next.</small></p>
+     <figure><table>
+      <thead><tr><th>offset</th><th>value (LE)</th><th>role</th></tr></thead>
+      <tbody><?php echo $chainRows; ?></tbody>
+     </table></figure>
+     <?php if ($sysOff !== null && $aligned): ?>
+     <p><ins><strong>Alignment OK.</strong> <code>system</code> is reached 16-byte
+        aligned: <code>(<?php echo $sysOff; ?> − <?php echo $retOff; ?>) mod 16 = 8</code>,
+        so its <code>movaps</code> will not fault.</ins></p>
+     <?php elseif ($sysOff !== null): ?>
+     <p><mark><strong>Misaligned.</strong> <code>system</code> is reached with the stack
+        off by 8: <code>(<?php echo $sysOff; ?> − <?php echo $retOff; ?>) mod 16 =
+        <?php echo (((($sysOff - $retOff) % 16) + 16) % 16); ?></code>, so glibc faults in a
+        <code>movaps</code> (a segfault inside <code>system</code>). Prepend one extra
+        bare <code>ret</code> (the byte right after your <code>pop rdi; ret</code>
+        gadget) before the gadget to shift the stack by 8.</mark></p>
+     <?php else: ?>
+     <p><small>No <code>system</code> address appears in your chain yet, so there is
+        nothing to align-check. Point the last link at <code>system</code> (find its
+        address on the <strong>Debug</strong> dial's <strong>ROP ingredients</strong>
+        panel, or with <code>ROPgadget</code> / <code>nm</code>).</small></p>
+     <?php endif; ?>
+     <?php else: ?>
+     <p><small>Your input did not reach the saved return address
+        (<code>+<?php echo $retOff; ?></code>) yet, so there is no chain to read.</small></p>
+     <?php endif; ?>
+     <?php else: ?>
+     <p><small>Send a payload and this tab reads it back as a ROP chain: each link's
+        role, and whether it reaches <code>system</code> with the 16-byte stack
+        alignment that call needs.</small></p>
+     <?php endif; ?>
+    </section>
+
     <?php if ($debugLevel >= 2): ?>
     <section data-panel="rop" hidden>
      <figure><table>
       <tbody>
-       <tr><th><code>system@plt</code></th><td><code><?php echo htmlspecialchars($sysAddr ?? 'not found'); ?></code></td><td>call target, runs a shell command string in RDI</td></tr>
+       <tr><th><code>system</code></th><td><code><?php echo htmlspecialchars($sysAddr ?? 'not found'); ?></code></td><td>call target, runs a shell command string in RDI</td></tr>
        <tr><th><code>"/bin/sh"</code> string</th><td><code><?php echo htmlspecialchars($binshAddr ?? 'not found'); ?></code></td><td>put this in RDI</td></tr>
        <tr><th><code>pop rdi; ret</code></th><td><code><?php echo htmlspecialchars($popAddr ?? 'not found'); ?></code></td><td>loads the next stack value into RDI</td></tr>
        <tr><th>bare <code>ret</code></th><td><code><?php echo htmlspecialchars($popAddr ? '0x' . dechex(hexdec($popAddr) + 1) : 'not found'); ?></code></td><td>alignment padding (the byte after <code>pop rdi</code>)</td></tr>
@@ -200,7 +288,7 @@ $popAddr   = nrun_symbol_addr($BIN, 'pop_rdi_ret');
     </section>
 
     <section data-panel="disasm" hidden>
-     <pre style="overflow-x:auto"><?php echo htmlspecialchars(nrun_disasm($BIN, ['vuln', 'main', 'pop_rdi_ret'])); ?></pre>
+     <pre style="overflow-x:auto"><?php echo htmlspecialchars(nrun_disasm($BIN, ['vuln', 'main'])); ?></pre>
     </section>
 
     <?php if ($debugLevel >= 2): ?>
@@ -219,7 +307,7 @@ $popAddr   = nrun_symbol_addr($BIN, 'pop_rdi_ret');
      <p><small>Memory map unavailable in this environment.</small></p>
      <?php endif; ?>
      <p><small>Where this program is loaded in memory this run. With
-        <code>-no-pie</code> the base is fixed, which is why <code>system@plt</code>,
+        <code>-no-pie</code> the base is fixed, which is why <code>system</code>,
         the gadget, and the <code>"/bin/sh"</code> string sit at constant addresses
         and need no leak. Enable PIE (<code>-fpie -pie</code>) and, with the host's
         ASLR on, they move each run, that is when a real ret2libc needs an info leak.</small></p>
