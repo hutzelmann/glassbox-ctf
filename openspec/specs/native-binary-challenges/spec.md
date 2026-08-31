@@ -81,10 +81,18 @@ previously working exploit payload to stop working.
 A native challenge SHALL expose an editable compiler-flags field restricted to a
 curated allowlist of exploit-relevant flags (stack protector, position
 independence / PIE, non-executable stack / NX, optimization level, and debug
-info). Flags outside the allowlist SHALL be ignored with a visible note rather than
-applied. Changing the flags and saving SHALL rebuild the binary and update its
-`checksec` report, and enabling an appropriate protection SHALL be able to defeat
-the shipped exploit without any change to the source.
+info). Flags outside the allowlist entered in that field SHALL be ignored with a
+visible note rather than applied. Changing the flags and saving SHALL rebuild the
+binary and update its `checksec` report, and enabling an appropriate protection
+SHALL be able to defeat the shipped exploit without any change to the source.
+
+Separately, a challenge MAY pin fixed author-supplied build flags that apply on
+every build in addition to the learner's allowlisted flags. These author flags are
+trusted, are NOT exposed in the learner-editable field, and are NOT subject to the
+learner allowlist. A learner SHALL NOT be able to remove or override an author-fixed
+flag through the flags field. Author-fixed flags are for build settings a challenge
+depends on structurally (for example, `ret2libc` pinning static linking so its ROP
+ingredients exist), not for protections the learner is meant to toggle.
 
 #### Scenario: Enabling the stack protector defeats ret2win
 
@@ -102,6 +110,13 @@ the shipped exploit without any change to the source.
 
 - **WHEN** the flags change the binary's protections
 - **THEN** the debug view's `checksec` report shows the new protection state
+
+#### Scenario: Author-fixed flags always apply
+
+- **WHEN** a challenge pins a fixed author build flag (such as `ret2libc`'s static
+  linking) and a learner edits or clears the editable flags field and saves
+- **THEN** every rebuild still applies the author-fixed flag, and the learner cannot
+  remove it through the flags field
 
 ### Requirement: The debug view exposes binary internals
 
@@ -137,6 +152,18 @@ execution; it SHALL ship with a non-executable stack so that code injection is n
 the intended path. Each rung SHALL be remediable by bounding the vulnerable read in
 its own `critical.c`.
 
+`ret2libc`'s exploitation primitives — a `pop rdi; ret` gadget, the `"/bin/sh"`
+string, and the `system` entry point — SHALL be present in the shipped binary as a
+consequence of its ordinary build rather than through hand-authored assembly,
+synthetic globals, or dead code whose only purpose is to keep a symbol or string
+linked. The learner-facing source SHALL therefore read as a plausible C program.
+
+`ret2libc`'s flag SHALL be a file named `flag.txt` that the exploit reads with a
+relative path (e.g. `cat flag.txt`) from the working directory in which the server
+runs the binary. The flag file SHALL live outside the web document root so that the
+web layer never serves it; it SHALL be obtainable only through the command
+execution the exploit achieves.
+
 #### Scenario: ret2win reaches the win function
 
 - **WHEN** a learner sends padding plus `win()`'s address
@@ -146,7 +173,21 @@ its own `critical.c`.
 
 - **WHEN** a learner sends the return-oriented chain
 - **THEN** the binary executes a shell command of the learner's choosing and can
-  read the `/flag` file
+  read the `flag.txt` file
+
+#### Scenario: ret2libc ingredients arise from the natural build
+
+- **WHEN** the shipped ret2libc binary is inspected for the gadget, the `"/bin/sh"`
+  string, and `system`
+- **THEN** all three are present as products of the normal (statically linked)
+  build, and the source contains no inline assembly, no synthetic `/bin/sh` global,
+  and no branch that exists solely to keep `system` linked
+
+#### Scenario: The flag is not reachable from the web layer
+
+- **WHEN** the flag file is requested through the challenge's web server
+- **THEN** it is not served, and the flag is disclosed only via a command run by the
+  exploited binary
 
 #### Scenario: Bounding the read remediates the rung
 
@@ -190,4 +231,46 @@ solve the challenge.
 - **WHEN** live capture cannot run in the current environment
 - **THEN** the stack view falls back to the payload-derived model with a note, and
   the exploit and its solution are unaffected
+
+### Requirement: The debug view interprets a submitted ROP chain
+
+For a rung solved with a multi-link return-oriented chain (`ret2libc`), the Hints
+level (`?debug=1`) SHALL interpret the learner's own submitted bytes as a chain, not
+merely display them. It SHALL show the full submitted payload on the stack view
+(never silently truncated), mark where the vulnerable read stops so bytes beyond it
+are shown as feeding the spawned shell's input rather than the stack, resolve each
+filled slot at and above the saved return address to the role it plays in the chain,
+and report whether the chain reaches its `system` call with the stack alignment that
+call requires. This guidance interprets the learner's attempt, so it SHALL appear
+only once Hints (or Debug) is enabled and only after a payload has been submitted.
+
+#### Scenario: Full submitted bytes with the read boundary marked
+
+- **WHEN** a learner submits a payload longer than the vulnerable read and opens the
+  stack view
+- **THEN** every submitted byte is shown, and the bytes past the read boundary are
+  marked as feeding the spawned shell's stdin rather than lying on the stack
+
+#### Scenario: Chain links are resolved to their roles
+
+- **WHEN** a learner submits a chain and opens the stack view or the chain read-out
+- **THEN** each filled slot from the saved return address upward is labelled with its
+  role (for example an alignment `ret`, a `pop rdi; ret` gadget, the address of the
+  `"/bin/sh"` string used as an argument, or the `system` call target), and an
+  argument slot is not mislabelled as a return target
+
+#### Scenario: Misalignment before the system call is reported
+
+- **WHEN** a learner's chain calls `system` but reaches it without the 16-byte stack
+  alignment that call requires
+- **THEN** the view reports that the call will fault on the alignment-sensitive
+  instruction and tells the learner to add a bare `ret` to realign, and when the
+  chain is correctly aligned it does not raise that warning
+
+#### Scenario: The chain read-out summarizes the attempt
+
+- **WHEN** a learner submits a chain and opens the chain read-out
+- **THEN** it lists the chain step by step — each link's stack offset, value, resolved
+  role, and effect — together with the alignment verdict, without the learner having
+  to reconstruct it from the raw frame
 
