@@ -2,9 +2,10 @@
 # Builds FROM the harness and adds everything the binary challenges need: the C
 # toolchain (gcc + binutils), a C-mode CodeMirror editor bundle + read-only view,
 # live C linting (lint.php), and the shared runner/introspection helpers
-# (native-run.php). No gdb, no ptrace; exploitation happens against the downloadable
-# binary locally, and the container only needs to build, run, and introspect
-# statically.
+# (native-run.php). It also ships gdb, used only by the Debug view to capture the
+# real stack frame before and after the overflow (gdb-dump.py); exploitation still
+# happens locally against the downloadable binary, and the capture is best-effort
+# and never on the critical path (see native-run.php / AGENTS.md open-tooling rule).
 ARG BASE_IMAGE=glassbox-harness
 
 FROM node:alpine AS build
@@ -18,7 +19,7 @@ RUN ./node_modules/.bin/esbuild cm-init.js --bundle --format=iife --outfile=code
 FROM ${BASE_IMAGE}
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends gcc binutils libc6-dev \
+    && apt-get install -y --no-install-recommends gcc binutils libc6-dev gdb \
     && rm -rf /var/lib/apt/lists/*
 
 COPY nbuild /usr/local/bin/nbuild
@@ -26,4 +27,4 @@ RUN chmod +x /usr/local/bin/nbuild
 
 COPY --from=build /build/codemirror-bundle.js /var/www/html/codemirror-bundle.js
 COPY --from=build /build/codemirror-c-view.js /var/www/html/codemirror-c-view.js
-COPY lint.php native-run.php /var/www/html/
+COPY lint.php native-run.php gdb-dump.py /var/www/html/

@@ -3,7 +3,9 @@ require 'native-run.php';
 
 require 'debug.php';
 $BIN = __DIR__ . '/ret2libc';
-$BUFSIZE = 16;
+// Buffer size for the stack-view labels, read from the binary's DWARF so it tracks
+// whatever the learner compiles; falls back to the shipped char buf[16].
+$BUFSIZE = nrun_buf_size($BIN, 16);
 
 $payloadHex = $_POST['payload_hex'] ?? '';
 $ran = false;
@@ -108,16 +110,22 @@ $popAddr   = nrun_symbol_addr($BIN, 'pop_rdi_ret');
     </article>
     <?php
     $activeTab = 'stack';
-    // Level 1 shows only the learner's own bytes on the frame (symptom); level 2
-    // adds the gadget/function addresses and target internals (cause).
+    // Level 1 (Hints) shows the learner's own bytes on the frame plus the static
+    // protections and disassembly they need to orient. Level 2 (Debug) adds the
+    // live captured frame and the deeper target internals (the gadget/function
+    // addresses, memory map, program source) a real attacker extracts themselves.
     $dbgTabs = ['stack' => 'Your bytes'];
-    if ($debugLevel >= 2) {
+    if ($debugLevel >= 1) {
         $dbgTabs += [
-            'rop'      => 'ROP ingredients',
             'checksec' => 'checksec',
             'disasm'   => 'Disassembly',
-            'maps'     => 'Memory map',
-            'prog'     => 'Program',
+        ];
+    }
+    if ($debugLevel >= 2) {
+        $dbgTabs += [
+            'rop'  => 'ROP ingredients',
+            'maps' => 'Memory map',
+            'prog' => 'Program',
         ];
     }
     ?>
@@ -132,10 +140,25 @@ $popAddr   = nrun_symbol_addr($BIN, 'pop_rdi_ret');
      <p><small>Hexdump of the <?php echo strlen($payload); ?> bytes the server received
         (only the first 64 are read onto the stack; the rest feed the shell):</small></p>
      <pre style="overflow-x:auto"><?php echo htmlspecialchars(nrun_hexdump($payload)); ?></pre>
+     <?php $live = $debugLevel >= 2 ? nrun_gdb_frame($BIN, $payload, $BUFSIZE) : null; ?>
+     <?php if ($live): ?>
+     <p><small>The <strong>real</strong> frame, captured from the running binary with
+        <code>gdb</code>: <strong>before</strong> the <code>read()</code> (the actual saved
+        return address and saved RBP, plus the buffer's own uninitialized contents) and
+        <strong>after</strong> it (your chain over them). Compare the two columns to see
+        which slots your chain overwrote; your gadget addresses land in and above the
+        saved return address.</small></p>
+     <?php echo nrun_stack_table_live($BIN, $BUFSIZE, $live); ?>
+     <?php else: ?>
+     <?php if ($debugLevel >= 2): ?>
+     <p><small>Live capture is unavailable in this environment; showing the payload-derived
+        model instead (the challenge is unaffected).</small></p>
+     <?php endif; ?>
      <?php echo nrun_stack_table($BIN, substr($payload, 0, 64), $BUFSIZE, [
         'origRet'   => nrun_return_addr($BIN),
         'hasCanary' => (nrun_checksec($BIN)['Canary'] ?? 'No') === 'Yes',
      ]); ?>
+     <?php endif; ?>
      <?php else: ?>
      <p><small>The stack frame your input runs off the end of. Fill the buffer and the
         saved RBP; the highlighted <strong>saved return address</strong> is where your
@@ -162,6 +185,7 @@ $popAddr   = nrun_symbol_addr($BIN, 'pop_rdi_ret');
         so no leak is needed. On a real target you would find them with
         <code>ROPgadget</code> / <code>objdump</code> and a libc leak.</small></p>
     </section>
+    <?php endif; ?>
 
     <section data-panel="checksec" hidden>
      <figure><table>
@@ -179,6 +203,7 @@ $popAddr   = nrun_symbol_addr($BIN, 'pop_rdi_ret');
      <pre style="overflow-x:auto"><?php echo htmlspecialchars(nrun_disasm($BIN, ['vuln', 'main', 'pop_rdi_ret'])); ?></pre>
     </section>
 
+    <?php if ($debugLevel >= 2): ?>
     <section data-panel="maps" hidden>
      <?php $maps = nrun_maps($BIN); ?>
      <?php if ($maps): ?>

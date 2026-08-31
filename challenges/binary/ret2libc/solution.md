@@ -10,10 +10,12 @@ Identical to ret2win, `critical.c` overflows a 16-byte buffer, so you control th
 saved return address at **offset 24** (16 buffer + 8 saved RBP):
 
 ```c
+struct msg { char tag[16]; char body[48]; };  // 64 bytes
+
 void vuln(void)
 {
     char buf[16];
-    read(0, buf, 0x40);   // 64 bytes into a 16-byte buffer
+    read(0, buf, sizeof(struct msg));   // 64 bytes into a 16-byte buffer
 }
 ```
 

@@ -5,14 +5,17 @@
 
 ## The vulnerability
 
-`critical.c` reads attacker input onto a 16-byte stack buffer but asks for far
-more bytes than the buffer holds:
+`critical.c` reads attacker input onto a 16-byte stack buffer, but bounds the read
+by the size of a whole message record instead of the buffer, so it reads far more
+bytes than `buf` holds:
 
 ```c
+struct msg { char tag[16]; char body[48]; };  // 64 bytes
+
 void vuln(void)
 {
     char buf[16];
-    read(0, buf, 0x40);   // reads up to 64 bytes into a 16-byte buffer
+    read(0, buf, sizeof(struct msg));   // 64 bytes into a 16-byte buffer
 }
 ```
 
@@ -44,10 +47,12 @@ the return address sits from the start of your buffer.
 
 ### b) The buffer size
 
-Work out how much room the input actually has. In the source (and in the binary)
-the buffer is `char buf[16]` and the read is `read(0, buf, 0x40)`: 16 bytes of room,
-but up to 64 read in. Ghidra's decompiler or `objdump` show it statically too, `buf`
-sits at `rbp-0x10` (16 bytes below the saved frame pointer).
+Work out how much room the input actually has. In the source the buffer is
+`char buf[16]` but the read is bounded by `sizeof(struct msg)` (64), not
+`sizeof(buf)`: 16 bytes of room, but up to 64 read in. The mismatch is a compile-time
+constant, so in the binary it is just `read(fd, buf, 0x40)`, Ghidra's decompiler or
+`objdump` show `mov edx, 0x40` and `buf` at `rbp-0x10` (16 bytes below the saved
+frame pointer).
 
 ### c) win()'s address
 

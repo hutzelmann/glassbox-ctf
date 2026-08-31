@@ -507,3 +507,352 @@ function nrun_stack_table(string $bin, string $payload, int $bufSize, array $opt
         . '<tbody>' . $rows . '</tbody>'
         . '</table></figure>';
 }
+
+// The declared size of the `buf` array, read from the binary's DWARF (`-g`), so the
+// stack view reflects the size that is actually compiled in, not a hard-coded guess.
+// This keeps the labels correct when a learner edits the buffer (for example
+// enlarging it as their fix). Falls back to $default when DWARF is absent (a build
+// without `-g`) or `buf` cannot be found.
+function nrun_buf_size(string $bin, int $default = 16): int {
+    $out = (string) @shell_exec('objdump --dwarf=info ' . escapeshellarg($bin) . ' 2>/dev/null');
+    if ($out === '') {
+        return $default;
+    }
+    $lines = explode("\n", $out);
+    $n = count($lines);
+
+    // 1) The `buf` variable DIE -> the offset of its array type.
+    $typeOff = null;
+    for ($i = 0; $i < $n; $i++) {
+        if (strpos($lines[$i], 'DW_TAG_variable') === false) {
+            continue;
+        }
+        $name = null;
+        $type = null;
+        for ($j = $i + 1; $j < $n; $j++) {
+            if (strpos($lines[$j], 'DW_TAG_') !== false || preg_match('/^\s*<\d+><[0-9a-f]+>:/', $lines[$j])) {
+                break;   // next DIE, this variable's attributes end here
+            }
+            if (preg_match('/DW_AT_name\s*:.*?\bbuf\s*$/', $lines[$j])) {
+                $name = 'buf';
+            }
+            if (preg_match('/DW_AT_type\s*:\s*<0x([0-9a-f]+)>/', $lines[$j], $m)) {
+                $type = $m[1];
+            }
+        }
+        if ($name === 'buf' && $type !== null) {
+            $typeOff = $type;
+            break;
+        }
+    }
+    if ($typeOff === null) {
+        return $default;
+    }
+
+    // 2) The array-type DIE at that offset -> its subrange bound (size - 1).
+    for ($i = 0; $i < $n; $i++) {
+        if (!preg_match('/^\s*<\d+><' . preg_quote($typeOff, '/') . '>:.*DW_TAG_array_type/', $lines[$i])) {
+            continue;
+        }
+        for ($j = $i + 1; $j < $n && $j < $i + 8; $j++) {
+            if (preg_match('/DW_AT_upper_bound\s*:\s*(0x[0-9a-f]+|\d+)/', $lines[$j], $m)) {
+                return (int) intval($m[1], 0) + 1;
+            }
+            if (preg_match('/DW_AT_count\s*:\s*(0x[0-9a-f]+|\d+)/', $lines[$j], $m)) {
+                return (int) intval($m[1], 0);
+            }
+        }
+        break;
+    }
+    return $default;
+}
+
+// --- live stack capture (gdb) ------------------------------------------------
+
+// Locate the two breakpoints inside vuln() and the buffer's position, all from a
+// static objdump so the gdb dumper needs no guessing. Returns
+// ['vuln'=>startAddr, 'offA'=>bytes-to-`call read`, 'offB'=>bytes-to-next-insn,
+// 'rbpToBuf'=>bytes from rbp down to buf start], or null if the shape is not the
+// expected read-into-a-stack-buffer (in which case live capture is skipped).
+function nrun_vuln_bp_addrs(string $bin): ?array {
+    $out = (string) @shell_exec('objdump -d -M intel --no-show-raw-insn ' . escapeshellarg($bin) . ' 2>/dev/null');
+    if ($out === '') {
+        return null;
+    }
+    // Isolate the vuln block.
+    $blocks = preg_split('/\n(?=[0-9a-f]+ <)/', $out);
+    $vuln = null;
+    foreach ($blocks as $b) {
+        if (preg_match('/^([0-9a-f]+) <vuln>:/m', $b, $m)) {
+            $vuln = $b;
+            $vulnStart = hexdec($m[1]);
+            break;
+        }
+    }
+    if ($vuln === null) {
+        return null;
+    }
+    $lines = explode("\n", $vuln);
+    $addrs = [];    // instruction addresses, in order
+    $callIdx = -1;  // index (into $addrs) of the `call read` line
+    $leaRbp = [];   // reg => bytes below rbp, from `lea reg,[rbp-0xNN]`
+    $rbpToBuf = null;
+    $readCap = null;
+    foreach ($lines as $line) {
+        if (!preg_match('/^\s*([0-9a-f]+):\s+(.*)$/', $line, $m)) {
+            continue;
+        }
+        $idx = count($addrs);
+        $addrs[] = hexdec($m[1]);
+        $insn = trim($m[2]);
+        if ($callIdx >= 0) {
+            continue;
+        }
+        // Track `lea reg,[rbp-0xNN]`; at -O0 the buffer address is lea'd into a
+        // register (usually rax) BEFORE it is moved into rsi (read's 2nd arg).
+        if (preg_match('/\blea\s+(\w+),\[rbp-0x([0-9a-f]+)\]/', $insn, $mm)) {
+            $leaRbp[$mm[1]] = hexdec($mm[2]);
+            if ($mm[1] === 'rsi') {
+                $rbpToBuf = hexdec($mm[2]);
+            }
+        }
+        // `mov rsi,reg`: buf is whatever was lea'd into reg.
+        if (preg_match('/\bmov\s+rsi,(\w+)/', $insn, $mm) && isset($leaRbp[$mm[1]])) {
+            $rbpToBuf = $leaRbp[$mm[1]];
+        }
+        // read()'s count (3rd arg, rdx) tells us how many bytes actually land on
+        // the stack, so bytes a learner appends past it (a shell command for
+        // ret2libc) are not mistaken for stack contents.
+        if (preg_match('/\bmov\s+e?dx,0x([0-9a-f]+)/', $insn, $mm)) {
+            $readCap = hexdec($mm[1]);
+        }
+        if (preg_match('/\bcall\s+[0-9a-f]+\s+<read(@plt)?>/', $insn)) {
+            $callIdx = $idx;
+        }
+    }
+    if ($callIdx < 0 || $callIdx + 1 >= count($addrs) || $rbpToBuf === null) {
+        return null;
+    }
+    return [
+        'vuln'     => $vulnStart,
+        'offA'     => $addrs[$callIdx] - $vulnStart,
+        'offB'     => $addrs[$callIdx + 1] - $vulnStart,
+        'rbpToBuf' => $rbpToBuf,
+        'readCap'  => $readCap,
+    ];
+}
+
+// Capture the real vulnerable frame before and after the overflowing read, by
+// running the binary under gdb (batch) with gdb-dump.py. Returns
+// ['rbpToBuf'=>, 'windowLen'=>, 'hasCanary'=>bool, 'before'=>frame, 'after'=>frame]
+// where each frame is ['window'=>rawbytes, 'savedrbp'=>int, 'ret'=>int,
+// 'canary'=>?int]. Returns null when capture is unavailable (no gdb, wrong binary
+// shape, blocked trace, emulation), so callers fall back to the payload model.
+function nrun_gdb_frame(string $bin, string $payload, int $bufSize): ?array {
+    $bp = nrun_vuln_bp_addrs($bin);
+    if ($bp === null) {
+        return null;
+    }
+    $script = __DIR__ . '/gdb-dump.py';
+    if (!is_file($script) || !is_file('/usr/bin/gdb') && !@shell_exec('command -v gdb')) {
+        return null;
+    }
+    $hasCanary = (nrun_checksec($bin)['Canary'] ?? 'No') === 'Yes';
+
+    // Window: from buf start up through the saved return address, extended to cover
+    // any payload that ran past the frame (a ROP chain), capped for safety. Only
+    // the bytes that actually land on the stack count: min(payload, read cap), so a
+    // shell command appended after the chain (ret2libc) is not shown as stack.
+    $onStack = strlen($payload);
+    if ($bp['readCap'] !== null && $bp['readCap'] < $onStack) {
+        $onStack = $bp['readCap'];
+    }
+    $windowLen = $bp['rbpToBuf'] + 16;
+    $needed = (int) (ceil($onStack / 8) * 8);
+    if ($needed > $windowLen) {
+        $windowLen = $needed;
+    }
+    if ($windowLen > 256) {
+        $windowLen = 256;
+    }
+
+    $pfile = tempnam(sys_get_temp_dir(), 'gbxpl');
+    if ($pfile === false) {
+        return null;
+    }
+    file_put_contents($pfile, $payload);
+
+    $env = [
+        'BP_OFF_A'     => (string) $bp['offA'],
+        'BP_OFF_B'     => (string) $bp['offB'],
+        'RBP_TO_BUF'   => (string) $bp['rbpToBuf'],
+        'WINDOW_LEN'   => (string) $windowLen,
+        'HAS_CANARY'   => $hasCanary ? '1' : '0',
+        'PAYLOAD_PATH' => $pfile,
+        'PATH'         => getenv('PATH') ?: '/usr/bin:/bin',
+        'HOME'         => sys_get_temp_dir(),
+    ];
+    // gdb + libpython need more address space than the tiny run sandbox allows, so
+    // bound the gdb capture by wall-clock only; the inferior still exits at its own
+    // read()/return and cannot outlive the timeout.
+    $cmd = ['timeout', '--signal=KILL', '8', 'gdb', '-q', '-batch', '-nx', '-x', $script, $bin];
+    $spec = [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']];
+    $proc = @proc_open($cmd, $spec, $pipes, sys_get_temp_dir(), $env);
+    if (!is_resource($proc)) {
+        @unlink($pfile);
+        return null;
+    }
+    fclose($pipes[0]);
+    $stdout = stream_get_contents($pipes[1]);
+    stream_get_contents($pipes[2]);
+    fclose($pipes[1]);
+    fclose($pipes[2]);
+    proc_close($proc);
+    @unlink($pfile);
+
+    if (!preg_match('/GBXJSON(.*?)GBXEND/s', $stdout, $m)) {
+        return null;
+    }
+    $data = json_decode(trim($m[1]), true);
+    if (!is_array($data) || empty($data['ok'])) {
+        return null;
+    }
+    foreach (['before', 'after'] as $side) {
+        if (!isset($data[$side]['window']) || !ctype_xdigit($data[$side]['window'])) {
+            return null;
+        }
+        $data[$side]['window'] = hex2bin($data[$side]['window']);
+    }
+    return [
+        'rbpToBuf'  => $bp['rbpToBuf'],
+        'windowLen' => $windowLen,
+        'hasCanary' => $hasCanary,
+        'before'    => $data['before'],
+        'after'     => $data['after'],
+    ];
+}
+
+// Read 8 bytes at $off from a captured window as a little-endian address string.
+function nrun_word_le(string $window, int $off): string {
+    $w = substr($window, $off, 8);
+    $w = str_pad($w, 8, "\0");
+    $hex = '';
+    for ($j = 7; $j >= 0; $j--) {
+        $hex .= sprintf('%02x', ord($w[$j]));
+    }
+    return '0x' . $hex;
+}
+
+// The live before/after stack table: the real frame captured from the running
+// binary, pristine and clobbered, side by side in one table so each slot's change
+// reads by comparing the two columns. Every value is real memory (no placeholders);
+// the saved-return-address (and canary) rows spell out the consequence. $cap comes
+// from nrun_gdb_frame().
+function nrun_stack_table_live(string $bin, int $bufSize, array $cap): string {
+    $rbpToBuf  = $cap['rbpToBuf'];
+    $hasCanary = $cap['hasCanary'];
+    $bw = $cap['before']['window'];
+    $aw = $cap['after']['window'];
+    $total = $cap['windowLen'];
+
+    // The "leftover / uninitialized" note belongs on a buffer word that actually
+    // shows non-zero garbage: on any given run some words happen to be zero, and
+    // labelling a zero word "garbage" reads wrong. Pick the first non-zero buffer
+    // word in the pristine frame; fall back to +0 when the whole buffer is zero.
+    $garbageOff = 0;
+    for ($o = 0; $o < $bufSize; $o += 8) {
+        if (trim(substr($bw, $o, 8), "\0") !== '') {
+            $garbageOff = $o;
+            break;
+        }
+    }
+
+    $rows = '';
+    for ($off = 0; $off < $total; $off += 8) {
+        $b = substr($bw, $off, 8);
+        $a = substr($aw, $off, 8);
+        $changed = ($b !== $a);
+        $bVal = nrun_word_le($bw, $off);
+        $aVal = nrun_word_le($aw, $off);
+
+        // Region for this 8-byte word.
+        if ($off < $bufSize) {
+            $region = "buf[$bufSize]";
+        } elseif ($hasCanary && $off === $rbpToBuf - 8) {
+            $region = 'stack canary';
+        } elseif ($off < $rbpToBuf) {
+            $region = 'padding / locals';
+        } elseif ($off === $rbpToBuf) {
+            $region = 'saved RBP';
+        } elseif ($off === $rbpToBuf + 8) {
+            $region = 'saved return address';
+        } else {
+            $region = 'above the frame';
+        }
+
+        // Note per slot: the interesting rows explain the consequence.
+        if ($off === $rbpToBuf + 8) {
+            if ($changed) {
+                $note = 'the CPU returns here. was <code>' . htmlspecialchars($bVal) . '</code> ('
+                    . nrun_resolve_addr($bin, $bVal) . '), now <strong>' . htmlspecialchars($aVal) . '</strong>: '
+                    . nrun_resolve_addr($bin, $aVal);
+            } else {
+                $note = 'the CPU returns here, unchanged: ' . nrun_resolve_addr($bin, $bVal);
+            }
+        } elseif ($hasCanary && $off === $rbpToBuf - 8) {
+            $note = $changed
+                ? 'random, set per run and checked just before return. you overwrote <code>'
+                    . htmlspecialchars($bVal) . '</code> with <code>' . htmlspecialchars($aVal)
+                    . '</code>, so the check fails and the program aborts'
+                : 'random, set per run and checked just before return: <code>' . htmlspecialchars($bVal) . '</code> (intact)';
+        } elseif ($off === $rbpToBuf) {
+            $note = $changed ? 'saved frame pointer, overwritten' : 'saved frame pointer, intact';
+        } elseif ($off < $bufSize) {
+            $parts = [];
+            if ($off === 0) {
+                $parts[] = 'your input starts here';
+            }
+            if ($off === $garbageOff) {
+                $parts[] = 'before, this held leftover stack data (uninitialized)';
+            }
+            $note = implode('; ', $parts);
+        } elseif ($off < $rbpToBuf) {
+            $note = 'compiler-inserted alignment / locals';
+        } else {
+            $note = $changed ? 'your bytes ran past the frame (e.g. a ROP chain)' : 'stack above the frame';
+        }
+
+        // Bytes never wrap (a broken mid-word wrap looks wrong). No highlight: the
+        // before/after values differ visibly and the note column already names which
+        // slots the payload overwrote, so a background mark only added visual noise.
+        $nw = ' style="white-space:nowrap"';
+        $bBytes = '<code' . $nw . '>' . nrun_hex_bytes($b) . '</code>'
+            . '<br/><small><code' . $nw . '>' . htmlspecialchars($bVal) . '</code></small>';
+        $aCell = '<code' . $nw . '>' . nrun_hex_bytes($a) . '</code>'
+            . '<br/><small><code' . $nw . '>' . htmlspecialchars($aVal) . '</code></small>';
+
+        $rows .= '<tr>'
+            . '<td><code>+' . $off . '</code></td>'
+            . '<td>' . $region . '</td>'
+            . '<td>' . $bBytes . '</td>'
+            . '<td>' . $aCell . '</td>'
+            . '<td>' . $note . '</td>'
+            . '</tr>';
+    }
+
+    return '<figure style="overflow-x:auto">'
+        . '<table>'
+        . '<thead><tr><th>offset</th><th>stack slot</th><th>before (pristine)</th><th>after (your bytes)</th><th></th></tr></thead>'
+        . '<tbody>' . $rows . '</tbody>'
+        . '</table></figure>';
+}
+
+// Space-separated hex of up to 8 bytes (padded view helper for the live table).
+function nrun_hex_bytes(string $bytes): string {
+    $parts = [];
+    $len = strlen($bytes);
+    for ($j = 0; $j < $len; $j++) {
+        $parts[] = sprintf('%02x', ord($bytes[$j]));
+    }
+    return implode(' ', $parts);
+}

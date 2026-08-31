@@ -3,7 +3,10 @@ require 'native-run.php';
 
 require 'debug.php';
 $BIN = __DIR__ . '/ret2win';
-$BUFSIZE = 16; // char buf[16] in critical.c, the stack table labels regions from this
+// The buffer size the stack view labels regions from. Read from the binary's DWARF
+// so it tracks whatever the learner compiles (e.g. if their fix enlarges buf);
+// falls back to 16 (the shipped char buf[16]) when DWARF is unavailable.
+$BUFSIZE = nrun_buf_size($BIN, 16);
 
 // The binary only ever prints this decoy marker, never the real flag, so the
 // downloadable binary and the Program view cannot leak it. The interface maps the
@@ -109,16 +112,22 @@ $winAddr = nrun_symbol_addr($BIN, 'win');
     </article>
     <?php
     $activeTab = 'stack';
-    // Level 1 shows only the learner's own bytes on the frame (symptom); level 2
-    // adds the target internals a real attacker extracts for themselves (cause).
+    // Level 1 (Hints) shows the learner's own bytes on the frame plus the static
+    // protections and disassembly they need to orient. Level 2 (Debug) adds the
+    // live captured frame and the deeper target internals (symbols/gadgets, memory
+    // map, program source) a real attacker extracts for themselves.
     $dbgTabs = ['stack' => 'Your bytes'];
-    if ($debugLevel >= 2) {
+    if ($debugLevel >= 1) {
         $dbgTabs += [
             'checksec' => 'checksec',
             'disasm'   => 'Disassembly',
-            'maps'     => 'Memory map',
-            'prog'     => 'Program',
-            'symbols'  => 'Symbols',
+        ];
+    }
+    if ($debugLevel >= 2) {
+        $dbgTabs += [
+            'maps'    => 'Memory map',
+            'prog'    => 'Program',
+            'symbols' => 'Symbols',
         ];
     }
     ?>
@@ -132,10 +141,26 @@ $winAddr = nrun_symbol_addr($BIN, 'win');
      <?php if ($ran): ?>
      <p><small>Hexdump of the <?php echo strlen($payload); ?> bytes the server received:</small></p>
      <pre style="overflow-x:auto"><?php echo htmlspecialchars(nrun_hexdump($payload)); ?></pre>
+     <?php $live = $debugLevel >= 2 ? nrun_gdb_frame($BIN, $payload, $BUFSIZE) : null; ?>
+     <?php if ($live): ?>
+     <p><small>The <strong>real</strong> frame, captured from the running binary with
+        <code>gdb</code>: <strong>before</strong> the <code>read()</code> (the actual saved
+        return address, saved RBP and stack canary, plus the buffer's own uninitialized
+        contents) and <strong>after</strong> it (your bytes over them). Compare the two
+        columns to see which slots your input overwrote. A stack canary is random each
+        run; here you can watch that real value get clobbered (a real attacker would need
+        a leak to learn it).</small></p>
+     <?php echo nrun_stack_table_live($BIN, $BUFSIZE, $live); ?>
+     <?php else: ?>
+     <?php if ($debugLevel >= 2): ?>
+     <p><small>Live capture is unavailable in this environment; showing the payload-derived
+        model instead (the challenge is unaffected).</small></p>
+     <?php endif; ?>
      <?php echo nrun_stack_table($BIN, $payload, $BUFSIZE, [
         'origRet'   => nrun_return_addr($BIN),
         'hasCanary' => (nrun_checksec($BIN)['Canary'] ?? 'No') === 'Yes',
      ]); ?>
+     <?php endif; ?>
      <?php else: ?>
      <p><small>The stack frame your input runs off the end of. Your bytes start at
         <code>+0</code>; fill the buffer and the saved RBP, and the 8 bytes at the
@@ -147,7 +172,6 @@ $winAddr = nrun_symbol_addr($BIN, 'win');
      <?php endif; ?>
     </section>
 
-    <?php if ($debugLevel >= 2): ?>
     <section data-panel="checksec" hidden>
      <figure><table>
       <tbody>
@@ -165,6 +189,7 @@ $winAddr = nrun_symbol_addr($BIN, 'win');
      <pre style="overflow-x:auto"><?php echo htmlspecialchars(nrun_disasm($BIN, ['vuln', 'win', 'main'])); ?></pre>
     </section>
 
+    <?php if ($debugLevel >= 2): ?>
     <section data-panel="maps" hidden>
      <?php $maps = nrun_maps($BIN); ?>
      <?php if ($maps): ?>
