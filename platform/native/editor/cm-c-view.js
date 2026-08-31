@@ -1,5 +1,6 @@
 import { EditorView, basicSetup } from "codemirror";
 import { cpp } from "@codemirror/lang-cpp";
+import { glassboxTheme } from "./cm-theme.js";
 
 // Read-only C view: used by the debug page to show the uneditable main.c context
 // (main() + win() + the harness around the learner's snippet).
@@ -13,6 +14,7 @@ document.addEventListener("DOMContentLoaded", () => {
     doc: textarea.value,
     extensions: [
       basicSetup,
+      glassboxTheme,
       cpp(),
       EditorView.lineWrapping,
       EditorView.editable.of(false),

@@ -1,5 +1,6 @@
 import { EditorView, basicSetup } from "codemirror";
 import { php } from "@codemirror/lang-php";
+import { glassboxTheme } from "./cm-theme.js";
 
 document.addEventListener("DOMContentLoaded", () => {
   document.querySelectorAll('[data-codemirror="php-view"]').forEach((textarea) => {
@@ -9,6 +10,7 @@ document.addEventListener("DOMContentLoaded", () => {
       doc: textarea.value,
       extensions: [
         basicSetup,
+        glassboxTheme,
         php(),
         EditorView.lineWrapping,
         EditorView.editable.of(false),

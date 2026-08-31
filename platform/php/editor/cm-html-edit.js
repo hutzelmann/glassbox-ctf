@@ -1,6 +1,7 @@
 import { EditorView, basicSetup } from "codemirror";
 import { html } from "@codemirror/lang-html";
 import { treeLinter, htmlTagLinter, jsLinter, lintGutter } from "./linters.js";
+import { glassboxTheme } from "./cm-theme.js";
 
 document.addEventListener("DOMContentLoaded", () => {
   const editors = [];
@@ -17,7 +18,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const view = new EditorView({
       doc: textarea.value,
-      extensions: [basicSetup, html(), EditorView.lineWrapping, lintGutter(), treeLinter, htmlTagLinter, jsLinter, syncTextarea],
+      extensions: [basicSetup, glassboxTheme, html(), EditorView.lineWrapping, lintGutter(), treeLinter, htmlTagLinter, jsLinter, syncTextarea],
     });
 
     const wrapper = document.createElement("div");

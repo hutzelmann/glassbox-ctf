@@ -9,7 +9,7 @@ FROM node:alpine AS build
 WORKDIR /build
 COPY editor/package.json .
 RUN npm install
-COPY editor/cm-init.js editor/cm-php-view.js editor/cm-html-edit.js editor/cm-sql-edit.js editor/cm-sql-input.js editor/linters.js editor/mysql-strings.js ./
+COPY editor/cm-init.js editor/cm-php-view.js editor/cm-html-edit.js editor/cm-sql-edit.js editor/cm-sql-input.js editor/cm-theme.js editor/linters.js editor/mysql-strings.js ./
 RUN ./node_modules/.bin/esbuild cm-init.js --bundle --format=iife --outfile=codemirror-bundle.js && \
     ./node_modules/.bin/esbuild cm-php-view.js --bundle --format=iife --outfile=codemirror-php-view.js && \
     ./node_modules/.bin/esbuild cm-html-edit.js --bundle --format=iife --outfile=codemirror-html-edit.js && \

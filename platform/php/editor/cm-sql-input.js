@@ -8,6 +8,7 @@ import { EditorView, basicSetup } from "codemirror";
 import { sql, MySQL } from "@codemirror/lang-sql";
 import { lintGutter, sqlBadCommentLinter } from "./linters.js";
 import { mysqlStringHighlighter } from "./mysql-strings.js";
+import { glassboxTheme } from "./cm-theme.js";
 
 document.addEventListener("DOMContentLoaded", () => {
   const editors = [];
@@ -26,6 +27,7 @@ document.addEventListener("DOMContentLoaded", () => {
       doc: textarea.value,
       extensions: [
         basicSetup,
+        glassboxTheme,
         sql({ dialect: MySQL }),
         EditorView.lineWrapping,
         lintGutter(),

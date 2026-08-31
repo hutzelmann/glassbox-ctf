@@ -11,7 +11,7 @@ FROM node:alpine AS build
 WORKDIR /build
 COPY editor/package.json .
 RUN npm install
-COPY editor/cm-init.js editor/cm-c-view.js editor/linters.js ./
+COPY editor/cm-init.js editor/cm-c-view.js editor/cm-theme.js editor/linters.js ./
 RUN ./node_modules/.bin/esbuild cm-init.js --bundle --format=iife --outfile=codemirror-bundle.js && \
     ./node_modules/.bin/esbuild cm-c-view.js --bundle --format=iife --outfile=codemirror-c-view.js
 

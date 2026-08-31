@@ -1,6 +1,7 @@
 import { EditorView, basicSetup } from "codemirror";
 import { php } from "@codemirror/lang-php";
 import { phpLinter, treeLinter, htmlTagLinter, jsLinter, lintGutter } from "./linters.js";
+import { glassboxTheme } from "./cm-theme.js";
 
 document.addEventListener("DOMContentLoaded", () => {
   document.querySelectorAll("textarea[name='content']").forEach((textarea) => {
@@ -8,7 +9,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const view = new EditorView({
       doc: textarea.value,
-      extensions: [basicSetup, php(), EditorView.lineWrapping, lintGutter(), phpLinter, treeLinter, htmlTagLinter, jsLinter],
+      extensions: [basicSetup, glassboxTheme, php(), EditorView.lineWrapping, lintGutter(), phpLinter, treeLinter, htmlTagLinter, jsLinter],
     });
 
     const wrapper = document.createElement("div");

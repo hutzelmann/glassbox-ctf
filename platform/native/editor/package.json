@@ -4,6 +4,7 @@
     "@codemirror/lang-cpp": "6.0.2",
     "@codemirror/language": "6.11.0",
     "@codemirror/lint": "6.8.5",
+    "@lezer/highlight": "1.2.1",
     "codemirror": "6.0.2",
     "esbuild": "*"
   }

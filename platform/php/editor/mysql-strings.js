@@ -78,8 +78,9 @@ export function subtractRanges(sortedA, sortedB) {
   return result;
 }
 
-// color: #a11 matches @codemirror/language defaultHighlightStyle tags.string
-const mysqlStringMark = Decoration.mark({ attributes: { style: "color: #a11" } });
+// The string colour cm-theme.js publishes, so a hand-painted MySQL string looks
+// like every other string and follows the page's colour scheme with them.
+const mysqlStringMark = Decoration.mark({ attributes: { style: "color: var(--gb-cm-string)" } });
 // Removes the wrong string color CM6 applied to regions MySQL doesn't see as strings
 const noStringMark = Decoration.mark({ attributes: { style: "color: unset" } });
 

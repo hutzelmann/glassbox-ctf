@@ -1,6 +1,7 @@
 import { EditorView, basicSetup } from "codemirror";
 import { cpp } from "@codemirror/lang-cpp";
 import { cLinter, treeLinter, lintGutter } from "./linters.js";
+import { glassboxTheme } from "./cm-theme.js";
 
 // Editable C editor for fix.php. Attaches to the same textarea[name='content']
 // the harness editor uses, so fix.php loads this bundle by name (codemirror-bundle.js)
@@ -13,7 +14,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const view = new EditorView({
     doc: textarea.value,
-    extensions: [basicSetup, cpp(), EditorView.lineWrapping, lintGutter(), cLinter, treeLinter],
+    extensions: [basicSetup, glassboxTheme, cpp(), EditorView.lineWrapping, lintGutter(), cLinter, treeLinter],
   });
 
   const wrapper = document.createElement("div");
