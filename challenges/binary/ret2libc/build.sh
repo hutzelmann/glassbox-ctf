@@ -5,4 +5,7 @@
 # `-- -static` is an author-fixed flag (not learner-editable): static linking is what
 # makes the ROP ingredients — a `pop rdi; ret` gadget, the "/bin/sh" string, and
 # system — arise naturally in the binary, so the learner must not be able to drop it.
-exec nbuild ret2libc main.c -- -static
+# `--arch x86_64` is likewise author-fixed: the binary is always x86-64 so its gadget
+# and symbol addresses match the one shared walkthrough, even on an arm64 host (where
+# it runs under qemu-user).
+exec nbuild ret2libc main.c --arch x86_64 -- -static

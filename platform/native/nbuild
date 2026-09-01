@@ -11,9 +11,28 @@
 # so the previous working build keeps running and the container never bricks.
 set -u
 
-out="${1:?usage: nbuild <out> <src> [flagsfile] [-- <fixed author flags>]}"
-src="${2:?usage: nbuild <out> <src> [flagsfile] [-- <fixed author flags>]}"
+usage="usage: nbuild <out> <src> [--arch <a>] [flagsfile] [-- <fixed author flags>]"
+out="${1:?$usage}"
+src="${2:?$usage}"
 shift 2
+
+# Optional target architecture (author-fixed, set by build.sh, NOT learner-editable).
+# It selects the compiler so the binary is always built for one fixed arch regardless
+# of the host: the container may be arm64, but an `--arch x86_64` challenge still ships
+# an x86-64 binary (run under qemu-user on a non-matching host). The GCC cross drivers
+# are host-independent: x86_64-linux-gnu-gcc always emits x86-64, aarch64-linux-gnu-gcc
+# always emits aarch64, both shipped by the native family image. Absent, the native
+# gcc is used (a non-arch challenge, unchanged behaviour).
+CC=gcc
+if [ "${1:-}" = "--arch" ]; then
+  case "$2" in
+    x86_64|x86-64|amd64)  CC=x86_64-linux-gnu-gcc ;;
+    aarch64|arm64)        CC=aarch64-linux-gnu-gcc ;;
+    native|"")            CC=gcc ;;
+    *) echo "nbuild: unknown --arch '$2' (want x86_64 | aarch64 | native)" >&2; exit 2 ;;
+  esac
+  shift 2
+fi
 
 # Optional flags file (learner-editable, allowlisted); defaults to build.flags.
 # Everything after a literal `--` is author-fixed: trusted flags the challenge
@@ -53,7 +72,7 @@ fi
 [ ${#dropped[@]} -gt 0 ] && echo "note: ignored non-allowlisted flags: ${dropped[*]}" >&2
 
 tmp="$(mktemp "./${out}.XXXXXX")"
-if gcc ${allowed[@]+"${allowed[@]}"} ${author[@]+"${author[@]}"} -o "$tmp" "$src" 2>&1; then
+if "$CC" ${allowed[@]+"${allowed[@]}"} ${author[@]+"${author[@]}"} -o "$tmp" "$src" 2>&1; then
   chmod +x "$tmp"
   mv -f "$tmp" "./$out"
   exit 0

@@ -20,9 +20,10 @@ jobs:
   #   - base: the CI override for the Dockerfile's `ARG BASE_IMAGE` default, mapped to its
   #           GHCR family image (glassbox-php -> ghcr.io/<owner>/glassbox-ctf-php:latest).
   #           Empty for standalone images (e.g. runtime-check FROM alpine).
-  #   - platforms: the `LABEL org.glassbox.platforms` default (e.g. binary rungs pin
-  #           linux/amd64 so their x86-64 addresses match the walkthrough), or the
-  #           two-arch default when the label is absent.
+  # Every image publishes for both linux/amd64 and linux/arm64; no image is arch-
+  # restricted. A challenge whose exploitable binary targets one architecture (the
+  # binary rungs pin x86-64 via nbuild --arch) still publishes both container arches and
+  # runs that binary under qemu-user on the non-matching host (see the native family).
   # ---------------------------------------------------------------------------
   discover:
     name: Discover challenges
@@ -51,10 +52,7 @@ jobs:
             else
               base=""                                                 # standalone (no glassbox base)
             fi
-            # Optional per-challenge publish platforms (LABEL org.glassbox.platforms).
-            platforms="$(grep -oP '^LABEL[[:space:]]+org\.glassbox\.platforms=\"?\K[^\"]+' "$df" | head -n1 || true)"
-            [ -z "$platforms" ] && platforms="linux/amd64,linux/arm64"
-            items+=("{\"name\":\"${name}\",\"path\":\"${dir}\",\"base\":\"${base}\",\"platforms\":\"${platforms}\"}")
+            items+=("{\"name\":\"${name}\",\"path\":\"${dir}\",\"base\":\"${base}\"}")
           done
           json="[$(IFS=,; echo "${items[*]}")]"
           echo "Discovered: $json"
@@ -107,6 +105,34 @@ jobs:
             BASE_IMAGE=${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ github.event.repository.name }}-harness:latest
 
   # ---------------------------------------------------------------------------
+  # Cross-architecture self-test. On a standard amd64 runner, build an aarch64-target
+  # fixture and drive it under qemu-user, exercising the SAME host!=target run + gdb
+  # capture path a student hits in reverse (x86-64 binary on an arm64 host). Proves the
+  # mismatch path every push without special hardware (platform/native/selftest.sh,
+  # openspec native-binaries-any-host D7). qemu is invoked explicitly inside the native
+  # image, so no host binfmt is needed.
+  # ---------------------------------------------------------------------------
+  native-selftest:
+    name: Native cross-arch self-test
+    runs-on: ubuntu-latest
+    needs: base
+    permissions:
+      packages: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Docker setup
+        uses: ./.github/actions/docker-setup
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Run the native family self-test
+        run: |
+          img="${REGISTRY}/${{ github.repository_owner }}/${{ github.event.repository.name }}-native:latest"
+          docker run --rm -v "$PWD/platform/native:/src:ro" "$img" bash /src/selftest.sh
+
+  # ---------------------------------------------------------------------------
   # Build every discovered challenge, FROM its parsed family base (or standalone).
   # ---------------------------------------------------------------------------
   challenges:
@@ -133,6 +159,6 @@ jobs:
         with:
           context: ./${{ matrix.item.path }}
           push: true
-          platforms: ${{ matrix.item.platforms }}
+          platforms: linux/amd64,linux/arm64
           tags: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ github.event.repository.name }}-${{ matrix.item.name }}:latest
           build-args: ${{ matrix.item.base != '' && format('BASE_IMAGE={0}', matrix.item.base) || '' }}

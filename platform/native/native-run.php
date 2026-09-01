@@ -26,15 +26,99 @@ function nrun_hex(string $bytes): string {
     return bin2hex($bytes);
 }
 
+// --- architecture: run a foreign-arch binary under qemu-user -----------------
+//
+// A challenge's binary targets one fixed architecture (built by nbuild --arch);
+// the container is multi-arch. When the host matches the binary the binary runs
+// native; when it does not, these helpers wrap it with the matching qemu-user
+// launcher. qemu is always invoked EXPLICITLY (never via binfmt_misc) so the
+// behaviour is deterministic and offline.
+
+// Normalised host architecture ('x86_64' | 'aarch64' | raw lowercased otherwise).
+function nrun_host_arch(): string {
+    $m = strtolower(trim(php_uname('m')));
+    if ($m === 'arm64') return 'aarch64';
+    if ($m === 'amd64') return 'x86_64';
+    return $m;
+}
+
+// The binary's architecture, read from the ELF header's e_machine (offset 18, 2
+// bytes, byte order per e_ident[EI_DATA]). Returns 'x86_64' | 'aarch64' | ''.
+function nrun_bin_arch(string $bin): string {
+    $fh = @fopen($bin, 'rb');
+    if ($fh === false) return '';
+    $hdr = fread($fh, 20);
+    fclose($fh);
+    if ($hdr === false || strlen($hdr) < 20 || substr($hdr, 0, 4) !== "\x7fELF") return '';
+    $le = ord($hdr[5]) !== 2;   // EI_DATA: 1 = little-endian, 2 = big-endian
+    $mach = $le ? (ord($hdr[18]) | (ord($hdr[19]) << 8))
+                : (ord($hdr[19]) | (ord($hdr[18]) << 8));
+    if ($mach === 0x3e) return 'x86_64';
+    if ($mach === 0xb7) return 'aarch64';
+    return '';
+}
+
+// The qemu-user launcher name for running $bin ('qemu-x86_64-static' /
+// 'qemu-aarch64-static'), or '' when the binary runs native or its arch is unknown.
+function nrun_qemu_for(string $bin): string {
+    $ba = nrun_bin_arch($bin);
+    if ($ba === '' || $ba === nrun_host_arch()) return '';
+    return 'qemu-' . $ba . '-static';
+}
+
+// True when $bin runs under qemu-user on this host (its arch differs from the host).
+// Pages use it to annotate emulator-derived debug panels (e.g. the memory map).
+function nrun_is_emulated(string $bin): bool {
+    return nrun_qemu_for($bin) !== '';
+}
+
+// The guest sysroot qemu-user must be pointed at (QEMU_LD_PREFIX) so a DYNAMIC
+// foreign binary finds its loader and libc (e.g. a dynamic x86-64 ret2win on an arm64
+// host needs /usr/x86_64-linux-gnu; a static binary needs none). '' when native or
+// the sysroot is absent. Shipped by the family's libc6-dev-<arch>-cross packages.
+function nrun_qemu_ld_prefix(string $bin): string {
+    $map = ['x86_64' => '/usr/x86_64-linux-gnu', 'aarch64' => '/usr/aarch64-linux-gnu'];
+    $dir = $map[nrun_bin_arch($bin)] ?? '';
+    return ($dir !== '' && is_dir($dir)) ? $dir : '';
+}
+
+// A free local TCP port (for qemu's gdbstub), or 0 if none could be reserved. The
+// socket is closed immediately, so there is a small race before qemu binds it; the
+// gdb capture is best-effort and falls back to the payload model if the bind loses.
+function nrun_free_port(): int {
+    $sock = @stream_socket_server('tcp://127.0.0.1:0', $errno, $errstr);
+    if ($sock === false) {
+        return 0;
+    }
+    $name = (string) stream_socket_get_name($sock, false);   // "127.0.0.1:PORT"
+    fclose($sock);
+    $pos = strrpos($name, ':');
+    return $pos === false ? 0 : (int) substr($name, $pos + 1);
+}
+
 // --- running the binary ------------------------------------------------------
 
 // Run $bin with $payload on stdin, sandboxed (wall-clock timeout + CPU/mem/file
 // ulimits via a bash wrapper), and capture stdout/stderr/exit. The wrapper's exec
 // replaces bash with the target, so the target still inherits our stdin pipe,
 // which matters for ret2libc, where bytes past the vulnerable read feed the shell.
+// On a host that does not match the binary's arch the target is prefixed with the
+// qemu-user launcher; the address-space ulimit (-v) is then dropped because
+// qemu-user reserves a large guest address space that a tight -v would kill (the
+// wall-clock timeout, CPU-time and file-size limits still bound the run).
 function nrun_run(string $bin, string $payload, int $timeout = 3, ?string $cwd = null): array {
-    $script = 'ulimit -t ' . $timeout . ' -v 262144 -f 4096 2>/dev/null; exec "$@"';
-    $cmd = ['timeout', '--signal=KILL', (string) $timeout, 'bash', '-c', $script, 'bash', $bin];
+    $qemu = nrun_qemu_for($bin);
+    $vlimit = $qemu === '' ? ' -v 262144' : '';
+    $pre = '';
+    if ($qemu !== '') {
+        $prefix = nrun_qemu_ld_prefix($bin);
+        if ($prefix !== '') {
+            $pre = 'export QEMU_LD_PREFIX=' . escapeshellarg($prefix) . '; ';
+        }
+    }
+    $script = $pre . 'ulimit -t ' . $timeout . $vlimit . ' -f 4096 2>/dev/null; exec "$@"';
+    $argv = $qemu === '' ? [$bin] : [$qemu, $bin];
+    $cmd = array_merge(['timeout', '--signal=KILL', (string) $timeout, 'bash', '-c', $script, 'bash'], $argv);
     $spec = [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']];
     // $cwd is the working directory of the spawned process (null = inherit ours);
     // a ret2libc rung sets it so a spawned shell's `cat flag.txt` resolves to a
@@ -370,9 +454,23 @@ function nrun_note_above_frame(string $bin, string $valHex, array $annoMap): str
 // read(0), then lets it go. Returns curated rows for the program, libc, stack, and
 // heap. No ptrace needed (same-uid /proc read). Empty on failure.
 function nrun_maps(string $bin): array {
-    $script = 'ulimit -t 2 -u 64 2>/dev/null; exec "$0"';
+    // Under qemu-user the /proc/<pid>/maps read below is the emulator process's map:
+    // it still shows the guest program and (dynamic) guest libc mapped by qemu, but
+    // the [stack]/[heap] rows are the emulator's, not the guest's emulated stack. The
+    // caller annotates the panel as emulator-derived (see nrun_is_emulated); this is a
+    // level-2 best-effort view, off the critical path.
+    $qemu = nrun_qemu_for($bin);
+    $argv = $qemu === '' ? [$bin] : [$qemu, $bin];
+    $pre = '';
+    if ($qemu !== '') {
+        $prefix = nrun_qemu_ld_prefix($bin);
+        if ($prefix !== '') {
+            $pre = 'export QEMU_LD_PREFIX=' . escapeshellarg($prefix) . '; ';
+        }
+    }
+    $script = $pre . 'ulimit -t 2 -u 64 2>/dev/null; exec "$@"';
     $spec = [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']];
-    $proc = @proc_open(['bash', '-c', $script, $bin], $spec, $pipes);
+    $proc = @proc_open(array_merge(['bash', '-c', $script, 'bash'], $argv), $spec, $pipes);
     if (!is_resource($proc)) {
         return [];
     }
@@ -764,7 +862,14 @@ function nrun_gdb_frame(string $bin, string $payload, int $bufSize): ?array {
         return null;
     }
     $script = __DIR__ . '/gdb-dump.py';
-    if (!is_file($script) || !is_file('/usr/bin/gdb') && !@shell_exec('command -v gdb')) {
+    if (!is_file($script)) {
+        return null;
+    }
+    // Native host: plain gdb ptraces the process. Foreign host: gdb-multiarch drives
+    // the binary over qemu-user's gdbstub. Require the debugger the chosen mode needs.
+    $qemu = nrun_qemu_for($bin);
+    $gdb = $qemu === '' ? 'gdb' : 'gdb-multiarch';
+    if (!@shell_exec('command -v ' . escapeshellarg($gdb))) {
         return null;
     }
     $hasCanary = (nrun_checksec($bin)['Canary'] ?? 'No') === 'Yes';
@@ -802,13 +907,46 @@ function nrun_gdb_frame(string $bin, string $payload, int $bufSize): ?array {
         'PATH'         => getenv('PATH') ?: '/usr/bin:/bin',
         'HOME'         => sys_get_temp_dir(),
     ];
+
+    // Foreign-arch binary: start it under qemu-user's gdbstub, paused, with the
+    // payload on its stdin; gdb-multiarch will connect and drive it. A qemu process we
+    // must reap afterward. Best-effort: any failure falls through to the payload model.
+    $qproc = null;
+    $qpipes = [];
+    if ($qemu === '') {
+        $env['GBX_MODE'] = 'native';
+    } else {
+        $port = nrun_free_port();
+        if ($port === 0) {
+            @unlink($pfile);
+            return null;
+        }
+        $prefix = nrun_qemu_ld_prefix($bin);
+        if ($prefix !== '') {
+            $env['QEMU_LD_PREFIX'] = $prefix;   // dynamic guest finds its loader/libc
+        }
+        $qspec = [0 => ['file', $pfile, 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']];
+        $qproc = @proc_open([$qemu, '-g', (string) $port, $bin], $qspec, $qpipes, sys_get_temp_dir(), $env);
+        if (!is_resource($qproc)) {
+            @unlink($pfile);
+            return null;
+        }
+        // qemu binds the gdbstub port before running any guest code, so a short pause
+        // lets `target remote` connect. Do NOT probe the port by connecting: that
+        // would consume qemu's single gdb accept.
+        usleep(300000);
+        $env['GBX_MODE'] = 'remote';
+        $env['GBX_PORT'] = (string) $port;
+    }
+
     // gdb + libpython need more address space than the tiny run sandbox allows, so
     // bound the gdb capture by wall-clock only; the inferior still exits at its own
     // read()/return and cannot outlive the timeout.
-    $cmd = ['timeout', '--signal=KILL', '8', 'gdb', '-q', '-batch', '-nx', '-x', $script, $bin];
+    $cmd = ['timeout', '--signal=KILL', '8', $gdb, '-q', '-batch', '-nx', '-x', $script, $bin];
     $spec = [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']];
     $proc = @proc_open($cmd, $spec, $pipes, sys_get_temp_dir(), $env);
     if (!is_resource($proc)) {
+        if (is_resource($qproc)) { @proc_terminate($qproc, 9); @proc_close($qproc); }
         @unlink($pfile);
         return null;
     }
@@ -818,6 +956,12 @@ function nrun_gdb_frame(string $bin, string $payload, int $bufSize): ?array {
     fclose($pipes[1]);
     fclose($pipes[2]);
     proc_close($proc);
+    if (is_resource($qproc)) {
+        @fclose($qpipes[1]);
+        @fclose($qpipes[2]);
+        @proc_terminate($qproc, 9);
+        @proc_close($qproc);
+    }
     @unlink($pfile);
 
     if (!preg_match('/GBXJSON(.*?)GBXEND/s', $stdout, $m)) {

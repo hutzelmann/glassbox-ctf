@@ -191,6 +191,12 @@ $winAddr = nrun_symbol_addr($BIN, 'win');
 
     <?php if ($debugLevel >= 2): ?>
     <section data-panel="maps" hidden>
+     <?php if (nrun_is_emulated($BIN)): ?>
+     <p><small>This x86-64 binary runs under an emulation layer on this host, so the map
+        below is the emulator's process: it still shows the program (and libc, if
+        dynamic), but the stack/heap rows are the emulator's, not the guest's. On an
+        x86-64 host it is the program's own map.</small></p>
+     <?php endif; ?>
      <?php $maps = nrun_maps($BIN); ?>
      <?php if ($maps): ?>
      <figure><table>

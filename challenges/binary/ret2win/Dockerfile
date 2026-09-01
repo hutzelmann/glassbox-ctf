@@ -2,10 +2,10 @@ ARG BASE_IMAGE=glassbox-native
 
 FROM ${BASE_IMAGE}
 
-# x86-64 addresses in the walkthrough must match the shipped binary, so this
-# challenge publishes for amd64 only; arm64 hosts run it under emulation. The CI
-# discover job reads this label.
-LABEL org.glassbox.platforms="linux/amd64"
+# The image publishes for both architectures like every other challenge. The
+# exploitable binary is pinned to x86-64 (build.sh: nbuild --arch x86_64), so its
+# addresses match the one shared walkthrough on every host; on an arm64 host the
+# native family runs it under qemu-user. No per-challenge platform restriction.
 
 # Only the files the running challenge needs, never README.md / solution.md.
 COPY index.php glassbox.php main.c critical.c build.sh build.flags /var/www/html/

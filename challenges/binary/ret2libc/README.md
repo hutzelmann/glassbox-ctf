@@ -51,8 +51,11 @@ just spawned to execute.
 podman run --rm -p 9000:80 ghcr.io/hutzelmann/glassbox-ctf-ret2libc
 ```
 
-Then open <http://localhost:9000/>. As with ret2win the binary is x86-64
-(`linux/amd64`; arm64 hosts run it under emulation).
+Then open <http://localhost:9000/>. The image is multi-architecture, so this runs
+natively on any host (Apple Silicon included) with the same command. As with ret2win
+the exploitable binary is x86-64 whatever the host, so its gadget and symbol addresses
+are the same for everyone (on a non-x86-64 host it runs under an in-container emulation
+layer, transparently).
 
 ## The glass box
 

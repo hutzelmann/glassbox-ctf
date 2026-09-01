@@ -47,9 +47,11 @@ calls it. Your job is to *return into it*.
 podman run --rm -p 9000:80 ghcr.io/hutzelmann/glassbox-ctf-ret2win
 ```
 
-Then open <http://localhost:9000/>. The binary is x86-64; the image is published
-for `linux/amd64`, so on Apple Silicon or other arm64 hosts it runs under
-emulation automatically (same command).
+Then open <http://localhost:9000/>. The image is multi-architecture, so this runs
+natively on any host (Apple Silicon included) with the same command and no extra
+flags. The exploitable binary is x86-64 whatever the host you run on, so the
+addresses and offsets you work out are the same for everyone (on a non-x86-64 host it
+runs under an in-container emulation layer, transparently).
 
 ## The glass box
 
