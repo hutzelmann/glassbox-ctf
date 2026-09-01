@@ -291,9 +291,13 @@ function nrun_frame_diagram(int $bufSize): string {
 }
 
 // Describe what an address points at: a named function (with offset), other
-// executable code, a non-canonical value, or nothing mapped. Used to explain the
-// value the CPU is about to return to.
-function nrun_resolve_addr(string $bin, string $addrHex): string {
+// executable code, a non-canonical value, or nothing mapped.
+//
+// $asReturnTarget says whether this address is the one the CPU is about to return
+// to. Only then may the description name the consequence at the `ret`; for a slot
+// that merely sits on the stack (above the frame) the identification is still
+// wanted but the return-time clause would be about a different slot, so pass false.
+function nrun_resolve_addr(string $bin, string $addrHex, bool $asReturnTarget = true): string {
     $h = ltrim(strtolower(preg_replace('/^0x/', '', $addrHex)), '0');
     if ($h === '') {
         $h = '0';
@@ -301,7 +305,9 @@ function nrun_resolve_addr(string $bin, string $addrHex): string {
     // On x86-64 a usable pointer has bits 48..63 equal to bit 47. A value longer
     // than 48 bits that is not in the high canonical half is non-canonical.
     if (strlen($h) > 12 && !preg_match('/^ffff[89a-f]/', str_pad($h, 16, '0', STR_PAD_LEFT))) {
-        return 'a non-canonical address, so the CPU raises a #GP fault at the ret (you control it, but it is not a usable code pointer)';
+        return $asReturnTarget
+            ? 'a non-canonical address, so the CPU raises a #GP fault at the ret (you control it, but it is not a usable code pointer)'
+            : 'a non-canonical address, not a usable code pointer';
     }
     $addr = hexdec($h);
     $syms = (string) @shell_exec('readelf -sW ' . escapeshellarg($bin) . ' 2>/dev/null');
@@ -327,7 +333,36 @@ function nrun_resolve_addr(string $bin, string $addrHex): string {
     if ($addr === 0.0 || $addr === 0) {
         return 'a null pointer';
     }
-    return 'not mapped in the program, so the CPU faults when it returns here';
+    return $asReturnTarget
+        ? 'not mapped in the program, so the CPU faults when it returns here'
+        : 'not mapped in the program';
+}
+
+// Normalize an address to the key both stack tables use for annotation lookups,
+// so "0x004011b6", "4011B6" and "0x4011b6" are the same slot.
+function nrun_anno_key(string $addrHex): string {
+    return '0x' . (ltrim(strtolower(preg_replace('/^0x/', '', $addrHex)), '0') ?: '0');
+}
+
+// The note for one stack word above the frame, shared by the payload-derived and
+// the live stack tables so the two cannot drift apart.
+//
+// Chain vocabulary is opt-in: only a rung that declared this address in its
+// `annotations` (ret2libc) gets it named as a chain link. A rung that declares no
+// chain (ret2win), or an address the declaring rung does not recognise, gets the
+// plain description instead: these bytes are stack above the frame, and the CPU
+// only reads them if execution returns a second time. The value is still resolved
+// either way, so a target address written one slot too high stays visible; the
+// resolver is told this is not the return slot, so it does not attribute the ret's
+// consequences to a word that is not the ret's.
+function nrun_note_above_frame(string $bin, string $valHex, array $annoMap): string {
+    $nk = nrun_anno_key($valHex);
+    if (isset($annoMap[$nk])) {
+        return 'chain link<br/><code>' . htmlspecialchars($valHex) . '</code> &rarr; ' . $annoMap[$nk];
+    }
+    return 'above the frame, reached only if execution returns again'
+        . '<br/><code>' . htmlspecialchars($valHex) . '</code>: '
+        . nrun_resolve_addr($bin, $valHex, false);
 }
 
 // Capture one run's process memory map. Runs the binary so its pid is the process
@@ -435,11 +470,10 @@ function nrun_stack_table(string $bin, string $payload, int $bufSize, array $opt
     $readLimit = $opts['readLimit'] ?? null;
     $annoMap   = [];
     foreach (($opts['annotations'] ?? []) as $k => $v) {
-        $annoMap['0x' . (ltrim(strtolower(preg_replace('/^0x/', '', (string) $k)), '0') ?: '0')] = $v;
+        $annoMap[nrun_anno_key((string) $k)] = $v;
     }
     $resolveRole = function (string $valHex) use ($annoMap, $bin): string {
-        $nk = '0x' . (ltrim(strtolower(preg_replace('/^0x/', '', $valHex)), '0') ?: '0');
-        return $annoMap[$nk] ?? nrun_resolve_addr($bin, $valHex);
+        return $annoMap[nrun_anno_key($valHex)] ?? nrun_resolve_addr($bin, $valHex);
     };
 
     $len = strlen($payload);
@@ -555,7 +589,7 @@ function nrun_stack_table(string $bin, string $payload, int $bufSize, array $opt
             $note = 'fed to the spawned shell (stdin), past the ' . (int) $readLimit
                   . '-byte read, not on the stack';
         } elseif ($slot === 'above' && $covered && $known) {
-            $note = 'chain link<br/>' . htmlspecialchars($val) . ': ' . $resolveRole($val);
+            $note = nrun_note_above_frame($bin, $val, $annoMap);
         } else {
             $note = 'stack above the frame';
         }
@@ -829,14 +863,14 @@ function nrun_stack_table_live(string $bin, int $bufSize, array $cap, array $opt
     $hasCanary = $cap['hasCanary'];
     // Optional chain-link roles (see ret2libc), keyed by address, consulted before the
     // generic resolver so a link past the frame is named (gadget / argument / call
-    // target) instead of just "above the frame".
+    // target) instead of just "above the frame". A rung that passes none never gets
+    // chain wording: see nrun_note_above_frame().
     $annoMap = [];
     foreach (($opts['annotations'] ?? []) as $k => $v) {
-        $annoMap['0x' . (ltrim(strtolower(preg_replace('/^0x/', '', (string) $k)), '0') ?: '0')] = $v;
+        $annoMap[nrun_anno_key((string) $k)] = $v;
     }
     $resolveRole = function (string $valHex) use ($annoMap, $bin): string {
-        $nk = '0x' . (ltrim(strtolower(preg_replace('/^0x/', '', $valHex)), '0') ?: '0');
-        return $annoMap[$nk] ?? nrun_resolve_addr($bin, $valHex);
+        return $annoMap[nrun_anno_key($valHex)] ?? nrun_resolve_addr($bin, $valHex);
     };
     $bw = $cap['before']['window'];
     $aw = $cap['after']['window'];
@@ -906,14 +940,7 @@ function nrun_stack_table_live(string $bin, int $bufSize, array $cap, array $opt
         } elseif ($off < $rbpToBuf) {
             $note = 'compiler-inserted alignment / locals';
         } else {
-            $nk = '0x' . (ltrim(strtolower(preg_replace('/^0x/', '', $aVal)), '0') ?: '0');
-            if ($changed && isset($annoMap[$nk])) {
-                $note = 'chain link: <code>' . htmlspecialchars($aVal) . '</code> &rarr; ' . $annoMap[$nk];
-            } elseif ($changed) {
-                $note = 'your bytes ran past the frame (e.g. a ROP chain)';
-            } else {
-                $note = 'stack above the frame';
-            }
+            $note = $changed ? nrun_note_above_frame($bin, $aVal, $annoMap) : 'stack above the frame';
         }
 
         // Bytes never wrap (a broken mid-word wrap looks wrong). No highlight: the
