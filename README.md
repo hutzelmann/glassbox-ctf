@@ -126,7 +126,7 @@ Vulnerable PHP apps with their own database or admin bot. Published for
 ### Binary
 
 Real x86-64 ELF binaries you overflow, recompile and re-attack in the browser.
-Published for `linux/amd64`; they run under emulation on arm64 hosts.
+Published for `linux/amd64` and `linux/arm64`.
 
 **Stack overflow**
 
