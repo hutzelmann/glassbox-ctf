@@ -16,9 +16,11 @@ its family image provides, rather than restricting the image's platforms.
 - **THEN** its image is available for both `linux/amd64` and `linux/arm64` under its
   `glassbox-ctf-<name>` tag
 
-#### Scenario: Binary rungs publish for both architectures
+#### Scenario: Challenge restricts its publish platforms
 
-- **WHEN** the binary rungs (`ret2win`, `ret2libc`), whose exploitable binary targets
-  x86-64, complete CI
-- **THEN** each is published for both `linux/amd64` and `linux/arm64`, the same as
-  every other image, and neither declares a restricted platform set
+- **WHEN** any challenge is built, including a binary rung (`ret2win`, `ret2libc`)
+  whose exploitable binary targets a single architecture (x86-64)
+- **THEN** its image is still published for both `linux/amd64` and `linux/arm64`; the
+  per-challenge platform-restriction mechanism has been removed, so no challenge
+  restricts its platforms (the binary rungs keep their binary single-arch via
+  `nbuild --arch` and run it under `qemu-user` on the non-matching host instead)

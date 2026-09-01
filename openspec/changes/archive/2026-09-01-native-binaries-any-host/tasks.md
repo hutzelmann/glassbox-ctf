@@ -52,7 +52,7 @@
 - [x] 5.2 Remove the platform-restriction parsing from
   `.github/workflows/docker-publish.yml` so the binary challenges publish for both
   architectures like every other image.
-- [ ] 5.3 Confirm CI (or a local buildx dry run) produces both `linux/amd64` and
+- [x] 5.3 Confirm CI (or a local buildx dry run) produces both `linux/amd64` and
   `linux/arm64` manifests for `ret2win` and `ret2libc`.
 
 ## 6. Docs
@@ -74,7 +74,7 @@
   whole host-not-equal-target logic path on real hardware.
 - [x] 7.2 Wire the 7.1 self-test into CI so the mismatch path is proven on standard
   amd64 runners every push.
-- [ ] 7.3 Confirm via `buildx` that the arm64 image builds and ships the expected tools
+- [x] 7.3 Confirm via `buildx` that the arm64 image builds and ships the expected tools
   (both cross-gcc, `qemu-x86_64-static`, `qemu-aarch64-static`, `gdb-multiarch`).
 - [ ] 7.4 Final environmental sign-off on real Apple Silicon (maintainer or student):
   plain `docker run` (no `--platform`), solve the rung, Save/recompile, and the Debug
