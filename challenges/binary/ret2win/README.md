@@ -9,7 +9,7 @@
 ## The scenario
 
 This is the "hello world" of memory-corruption exploitation. A function copies
-your input into a 16-byte buffer on the stack using a read that is far too big.
+your input into a small, fixed-size buffer on the stack using a read that is far too big.
 Just above that buffer sit two values the function will use when it returns: the
 saved frame pointer and the **saved return address**: the exact spot in the code
 the CPU will jump to next. Run off the end of the buffer and you get to choose
