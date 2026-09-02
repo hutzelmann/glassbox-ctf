@@ -1055,14 +1055,20 @@ function nrun_stack_table_live(string $bin, int $bufSize, array $cap, array $opt
             $region = 'above the frame';
         }
 
-        // Note per slot: the interesting rows explain the consequence.
+        // Note per slot: the interesting rows explain the consequence. The pristine
+        // value ($bVal) is the real saved return the program would use, so it is NOT a
+        // return target to resolve: only the value that ends up in the slot decides
+        // whether the return lands or faults. Resolving $bVal would also misread a PIE
+        // build, whose saved return into main() is relocated and so is not one of the
+        // binary's static symbols, as "not mapped / faults" on the very row that is
+        // unchanged and returns normally.
         if ($off === $rbpToBuf + 8) {
             if ($changed) {
-                $note = 'the CPU returns here. was <code>' . htmlspecialchars($bVal) . '</code> ('
-                    . nrun_resolve_addr($bin, $bVal) . '), now <strong>' . htmlspecialchars($aVal) . '</strong>: '
+                $note = 'the CPU returns here — was <code>' . htmlspecialchars($bVal) . '</code>, '
+                    . 'you overwrote it, now <strong>' . htmlspecialchars($aVal) . '</strong>: '
                     . $resolveRole($aVal);
             } else {
-                $note = 'the CPU returns here, unchanged: ' . nrun_resolve_addr($bin, $bVal);
+                $note = 'the CPU returns here — unchanged, so execution returns to the caller normally';
             }
         } elseif ($hasCanary && $off === $rbpToBuf - 8) {
             $note = $changed
